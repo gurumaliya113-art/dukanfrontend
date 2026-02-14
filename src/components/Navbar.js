@@ -11,6 +11,9 @@ export default function Navbar() {
   const { region, setRegion } = useRegion();
   const location = useLocation();
 
+  const isHome = location.pathname === "/";
+  const homeTop = isHome && !scrolled;
+
   const activeCategory = useMemo(() => {
     const params = new URLSearchParams(location.search || "");
     return normalizeCategory(params.get("category"));
@@ -28,7 +31,10 @@ export default function Navbar() {
   }, [location.pathname, location.search]);
 
   return (
-    <header className={scrolled ? "nav scrolled" : "nav"}>
+    <header className={["nav", scrolled ? "scrolled" : "", homeTop ? "home-top" : ""]
+      .filter(Boolean)
+      .join(" ")}
+    >
       <div className="promo-bar" role="region" aria-label="Announcement">
         <div className="container promo-inner">
           <div

@@ -103,7 +103,7 @@ export default function ShopPage() {
 
   return (
     <div>
-      <section className="hero hero-fullbleed">
+      <section className="hero hero-fullbleed hero-home">
         <HeroSlider images={sliderImages} />
       </section>
 
