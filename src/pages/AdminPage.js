@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { CATEGORIES, normalizeCategory } from "../categories";
 import { apiFetch, getApiBase } from "../api";
@@ -390,6 +391,13 @@ export default function AdminPage() {
                 Logout
               </button>
             ) : null}
+          </div>
+
+          <div className="summary-meta" style={{ marginTop: 10 }}>
+            Need customer login?{" "}
+            <Link to="/customer-auth" style={{ fontWeight: 600 }}>
+              Login as Customer
+            </Link>
           </div>
 
           {!admin ? (

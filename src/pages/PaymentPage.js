@@ -4,6 +4,7 @@ import { useRegion } from "../regionContext";
 import { formatMoney, getCartItemUnitPrice, getProductUnitPrice } from "../pricing";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { apiFetch } from "../api";
+import { supabase } from "../supabaseClient";
 
 export default function PaymentPage() {
   const location = useLocation();
@@ -142,9 +143,15 @@ export default function PaymentPage() {
 
     try {
       setPlacing(true);
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
       const res = await apiFetch("/paypal/capture-order", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           orderID,
           currency: "USD",
@@ -203,6 +210,9 @@ export default function PaymentPage() {
     try {
       setPlacing(true);
 
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || "";
+
       const base = {
         fullName: checkoutForm.fullName,
         email: checkoutForm.email,
@@ -217,7 +227,10 @@ export default function PaymentPage() {
       const placeOne = async ({ productId: pid, size: s, currency, unitPrice }) => {
         const res = await apiFetch("/orders", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({ ...base, productId: pid, size: s, currency, unitPrice }),
         });
 

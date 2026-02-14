@@ -97,6 +97,13 @@ export default function Navbar() {
             ADMIN
           </NavLink>
 
+          <NavLink
+            to="/customer-auth"
+            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+          >
+            CUSTOMER LOGIN
+          </NavLink>
+
           <label className="sr-only" htmlFor="region-select-top">
             Region
           </label>
@@ -110,18 +117,6 @@ export default function Navbar() {
             <option value="IN">India (INR)</option>
             <option value="US">USA (USD)</option>
           </select>
-
-          <button className="icon-btn" type="button" aria-label="Wishlist">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path
-                d="M12 20.5s-7.5-4.6-9.4-8.8C1 8.1 3.3 5.5 6.4 5.5c1.7 0 3.2.8 4.1 2 0 0 0 0 0 0 .6-.9 1.4-1.5 2.4-1.8.5-.1 1.1-.2 1.7-.2 3.1 0 5.4 2.6 3.8 6.2C19.5 15.9 12 20.5 12 20.5Z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
 
           <Link className="icon-btn" to="/cart" aria-label="Cart">
             <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -159,6 +154,13 @@ export default function Navbar() {
               }
             >
               ADMIN
+            </NavLink>
+
+            <NavLink
+              to="/customer-auth"
+              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+            >
+              CUSTOMER LOGIN
             </NavLink>
 
             <label className="sr-only" htmlFor="region-select-menu">

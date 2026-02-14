@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useCart } from "../cartContext";
 import { useRegion } from "../regionContext";
 import { formatMoney, getCartItemUnitPrice, getProductUnitPrice } from "../pricing";
 import { apiFetch } from "../api";
+import { supabase } from "../supabaseClient";
 
 const initialForm = {
   fullName: "",
@@ -27,13 +28,46 @@ export default function CheckoutPage() {
   const { region } = useRegion();
 
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const [customerUser, setCustomerUser] = useState(null);
+  const [checkoutAccess, setCheckoutAccess] = useState("pending"); // pending | guest
 
   const [product, setProduct] = useState(null);
   const [error, setError] = useState("");
   const [form, setForm] = useState(initialForm);
   const [status, setStatus] = useState("");
 
+  useEffect(() => {
+    const refresh = async () => {
+      const { data } = await supabase.auth.getSession();
+      setCustomerUser(data?.session?.user || null);
+    };
+
+    refresh();
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      refresh();
+    });
+
+    return () => {
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!customerUser) return;
+
+    // Prefill delivery contact if blank
+    setForm((prev) => ({
+      ...prev,
+      email: prev.email || customerUser.email || "",
+      phone: prev.phone || customerUser.phone || "",
+    }));
+  }, [customerUser]);
+
   const cartMode = fromCart || !productIdParam;
+
+  const canProceed = !!customerUser || checkoutAccess === "guest";
 
   const cartTotal = useMemo(() => {
     return cart.items.reduce(
@@ -95,6 +129,10 @@ export default function CheckoutPage() {
   const onPayNow = (e) => {
     e.preventDefault();
     setStatus("");
+    if (!canProceed) {
+      setStatus("Please select Guest checkout or Login to proceed");
+      return;
+    }
 
     if (!cartMode && !size) {
       setStatus("Please go back and select a size");
@@ -153,6 +191,16 @@ export default function CheckoutPage() {
         <p className="section-subtitle">
           Confirm your selection and enter delivery details.
         </p>
+
+        {!customerUser ? (
+          <p className="summary-meta" style={{ marginTop: 10 }}>
+            Checkout mode: {checkoutAccess === "guest" ? "Guest" : "Not selected"}
+          </p>
+        ) : (
+          <p className="summary-meta" style={{ marginTop: 10 }}>
+            Logged in as: {customerUser.email || customerUser.phone || customerUser.id}
+          </p>
+        )}
 
         <div className="checkout-grid">
           <div className="checkout-summary">
@@ -219,6 +267,43 @@ export default function CheckoutPage() {
           </div>
 
           <form className="checkout-form" onSubmit={onPayNow}>
+            {!canProceed ? (
+              <div style={{ marginBottom: 14 }}>
+                <div className="summary-title" style={{ marginBottom: 6 }}>
+                  Choose how to continue
+                </div>
+                <div className="summary-meta" style={{ marginBottom: 12 }}>
+                  You can checkout as guest, or login/create account to proceed.
+                </div>
+
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => {
+                      setCheckoutAccess("guest");
+                      setStatus("");
+                    }}
+                  >
+                    Checkout as Guest
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => {
+                      const redirect = `${location.pathname}${location.search || ""}`;
+                      navigate(`/customer-auth?redirect=${encodeURIComponent(redirect)}`);
+                    }}
+                  >
+                    Login to proceed
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {!canProceed ? null : (
+              <>
+
             <label>
               Full Name*
               <input name="fullName" value={form.fullName} onChange={onChange} />
@@ -268,6 +353,8 @@ export default function CheckoutPage() {
               Pay Now
             </button>
             {status ? <div className="status">{status}</div> : null}
+              </>
+            )}
           </form>
         </div>
       </div>
