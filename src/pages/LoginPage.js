@@ -22,6 +22,11 @@ export default function LoginPage() {
     return r;
   }, [params]);
 
+  const onlyCustomer = useMemo(() => {
+    const explicit = (params.get("only") || "").toLowerCase() === "customer";
+    return explicit || redirectTo.startsWith("/checkout");
+  }, [params, redirectTo]);
+
   const [sessionUser, setSessionUser] = useState(null);
 
   // Customer auth
@@ -208,8 +213,10 @@ export default function LoginPage() {
   return (
     <div className="section">
       <div className="container" style={{ maxWidth: 720 }}>
-        <h1 className="section-title">Login</h1>
-        <p className="section-subtitle">Customer login (top) and Admin login (below).</p>
+        <h1 className="section-title">{onlyCustomer ? "Customer Login" : "Login"}</h1>
+        <p className="section-subtitle">
+          {onlyCustomer ? "Login or create customer account to proceed." : "Customer login (top) and Admin login (below)."}
+        </p>
 
         <div className="auth-card" style={{ marginTop: 16 }}>
           <div className="auth-head">
@@ -308,94 +315,96 @@ export default function LoginPage() {
           ) : null}
         </div>
 
-        <div className="auth-card" style={{ marginTop: 18 }}>
-          <div className="auth-head">
-            <div>
-              <div className="summary-title">Admin Login</div>
-              <div className="summary-meta">
-                {admin?.email
-                  ? `Logged in as admin: ${admin.email}`
-                  : "Login required to access admin panel"}
+        {!onlyCustomer ? (
+          <div className="auth-card" style={{ marginTop: 18 }}>
+            <div className="auth-head">
+              <div>
+                <div className="summary-title">Admin Login</div>
+                <div className="summary-meta">
+                  {admin?.email
+                    ? `Logged in as admin: ${admin.email}`
+                    : "Login required to access admin panel"}
+                </div>
               </div>
+              {admin ? (
+                <Link
+                  to="/admin"
+                  className="primary-btn"
+                  style={{ display: "inline-block", textDecoration: "none" }}
+                >
+                  Go to Admin Panel
+                </Link>
+              ) : null}
             </div>
-            {admin ? (
-              <Link
-                to="/admin"
-                className="primary-btn"
-                style={{ display: "inline-block", textDecoration: "none" }}
-              >
-                Go to Admin Panel
-              </Link>
-            ) : null}
-          </div>
 
-          {!admin ? (
-            <>
-              <div className="auth-tabs" role="tablist" aria-label="Admin auth">
-                <button
-                  type="button"
-                  className={adminMode === "login" ? "auth-tab active" : "auth-tab"}
-                  onClick={() => setAdminMode("login")}
-                >
-                  Login
-                </button>
-                <button
-                  type="button"
-                  className={adminMode === "create" ? "auth-tab active" : "auth-tab"}
-                  onClick={() => setAdminMode("create")}
-                >
-                  Create Account
-                </button>
-              </div>
+            {!admin ? (
+              <>
+                <div className="auth-tabs" role="tablist" aria-label="Admin auth">
+                  <button
+                    type="button"
+                    className={adminMode === "login" ? "auth-tab active" : "auth-tab"}
+                    onClick={() => setAdminMode("login")}
+                  >
+                    Login
+                  </button>
+                  <button
+                    type="button"
+                    className={adminMode === "create" ? "auth-tab active" : "auth-tab"}
+                    onClick={() => setAdminMode("create")}
+                  >
+                    Create Account
+                  </button>
+                </div>
 
-              <form onSubmit={onAdminSubmit} className="auth-form">
-                <label>
-                  Email*
-                  <input
-                    value={adminEmail}
-                    onChange={(e) => setAdminEmail(e.target.value)}
-                    placeholder="admin@gmail.com"
-                  />
-                </label>
-
-                <label>
-                  Password*
-                  <input
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    type="password"
-                    placeholder="••••••••"
-                  />
-                </label>
-
-                {adminMode === "create" ? (
+                <form onSubmit={onAdminSubmit} className="auth-form">
                   <label>
-                    Invite Code*
+                    Email*
                     <input
-                      value={adminInvite}
-                      onChange={(e) => setAdminInvite(e.target.value)}
-                      placeholder="ADMIN_INVITE_CODE"
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      placeholder="admin@gmail.com"
                     />
                   </label>
-                ) : null}
 
-                <button className="primary-btn" type="submit" disabled={adminBusy}>
-                  {adminBusy
-                    ? "Please wait…"
-                    : adminMode === "login"
-                      ? "Login"
-                      : "Create Admin Account"}
-                </button>
-              </form>
-            </>
-          ) : null}
+                  <label>
+                    Password*
+                    <input
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      type="password"
+                      placeholder="••••••••"
+                    />
+                  </label>
 
-          {adminStatus.message ? (
-            <p style={{ color: adminStatus.type === "error" ? "crimson" : "green", marginTop: 12 }}>
-              {adminStatus.message}
-            </p>
-          ) : null}
-        </div>
+                  {adminMode === "create" ? (
+                    <label>
+                      Invite Code*
+                      <input
+                        value={adminInvite}
+                        onChange={(e) => setAdminInvite(e.target.value)}
+                        placeholder="ADMIN_INVITE_CODE"
+                      />
+                    </label>
+                  ) : null}
+
+                  <button className="primary-btn" type="submit" disabled={adminBusy}>
+                    {adminBusy
+                      ? "Please wait…"
+                      : adminMode === "login"
+                        ? "Login"
+                        : "Create Admin Account"}
+                  </button>
+                </form>
+              </>
+            ) : null}
+
+            {adminStatus.message ? (
+              <p style={{ color: adminStatus.type === "error" ? "crimson" : "green", marginTop: 12 }}>
+                {adminStatus.message}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         <p style={{ marginTop: 16 }}>
           <Link to="/">← Back to shop</Link>
