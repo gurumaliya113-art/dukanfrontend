@@ -243,6 +243,145 @@ p {
   border-radius: 0;
 }
 
+/* -------------------- REVIEWS SLIDER -------------------- */
+
+.reviews {
+  padding: 54px 0;
+}
+
+.section-subtitle {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.reviews-average {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.reviews-count {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.reviews-card {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  background: rgba(250, 250, 250, 0.65);
+  padding: 18px;
+}
+
+.reviews-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.review-star {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.review-star.full {
+  color: var(--text);
+}
+
+.review-star.empty {
+  color: var(--muted);
+}
+
+.review-star.half {
+  background: linear-gradient(90deg, var(--text) 50%, var(--muted) 50%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.reviews-rating {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.review-slide {
+  animation: reviewIn 520ms ease both;
+}
+
+.review-text {
+  margin-top: 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.review-meta {
+  margin-top: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.review-name {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.review-dot {
+  opacity: 0.8;
+}
+
+.review-product {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reviews-dots {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+}
+
+.reviews-dot {
+  width: 28px;
+  height: 2px;
+  border: 0;
+  background: rgba(26, 26, 26, 0.18);
+  cursor: pointer;
+  padding: 0;
+}
+
+.reviews-dot.active {
+  background: rgba(26, 26, 26, 0.62);
+}
+
+@keyframes reviewIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-slide {
+    animation: none;
+  }
+}
+
 @media (max-width: 900px) {
   .nav-inner {
     height: auto;

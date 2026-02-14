@@ -5,6 +5,7 @@ import { formatMoney, getProductUnitPrice } from "../pricing";
 import { getCategoryLabel, normalizeCategory } from "../categories";
 import { apiFetch } from "../api";
 import HeroSlider from "../components/HeroSlider";
+import ReviewsSlider from "../components/ReviewsSlider";
 
 export default function ShopPage() {
   const [products, setProducts] = useState([]);
@@ -106,6 +107,12 @@ export default function ShopPage() {
           </div>
         </div>
       </section>
+
+      <ReviewsSlider
+        title="Reviews"
+        subtitle="Faux Fur Jacket feedback from USA customers"
+        mix
+      />
 
       <section className="section">
         <div className="container">

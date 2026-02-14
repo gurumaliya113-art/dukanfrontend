@@ -4,6 +4,7 @@ import { useCart } from "../cartContext";
 import { useRegion } from "../regionContext";
 import { formatMoney, getProductUnitPrice } from "../pricing";
 import { apiFetch } from "../api";
+import ReviewsSlider from "../components/ReviewsSlider";
 
 const SIZES = ["XS", "S", "M", "L", "XL"]; 
 
@@ -167,6 +168,13 @@ export default function ProductPage() {
               <Link to="/">← Back to Latest Arrivals</Link>
             </p>
           </div>
+        </div>
+
+        <div style={{ marginTop: 26 }}>
+          <ReviewsSlider
+            title="Reviews"
+            subtitle="Faux Fur Jacket reviews (USA)"
+          />
         </div>
       </div>
     </div>
