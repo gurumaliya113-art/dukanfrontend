@@ -34,8 +34,8 @@ export default function ShopPage() {
         kicker: "KIDS WINTER COLLECTION IS LIVE",
         headline: "CHECK OUT NOW",
         // Slide 3 has a longer top line; keep it a bit lower to avoid overlapping the header.
-        textTop: "13vh",
-        textTopMobile: "112px",
+        textTop: "10vh",
+        textTopMobile: "92px",
       },
     ],
     []
