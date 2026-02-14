@@ -14,6 +14,8 @@ export default function PaymentPage() {
   const cart = useCart();
 
   const fromCart = params.get("fromCart") === "1";
+  const payOrderId = String(params.get("payOrderId") || "").trim();
+  const postOrderPayMode = !!payOrderId;
 
   const productId = useMemo(() => Number(params.get("productId")), [params]);
   const size = params.get("size") || "";
@@ -23,6 +25,10 @@ export default function PaymentPage() {
   const { region } = useRegion();
 
   const cartMode = fromCart || (Array.isArray(cartItems) && cartItems.length > 0);
+
+  const [payOffer, setPayOffer] = useState(null);
+  const [payOfferError, setPayOfferError] = useState("");
+  const [payOfferLoading, setPayOfferLoading] = useState(false);
 
   const cartTotal = useMemo(() => {
     if (!Array.isArray(cartItems)) return 0;
@@ -57,6 +63,62 @@ export default function PaymentPage() {
   const canUsePayPal = region === "US";
 
   useEffect(() => {
+    if (!postOrderPayMode) {
+      setPayOffer(null);
+      setPayOfferError("");
+      setPayOfferLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const run = async () => {
+      setPayOfferLoading(true);
+      setPayOfferError("");
+      setPayOffer(null);
+
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data?.session?.access_token || "";
+        if (!token) {
+          throw new Error("Please login to continue");
+        }
+
+        const res = await apiFetch(`/customer/orders/${encodeURIComponent(payOrderId)}/pay-offer`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+          throw new Error(msg);
+        }
+
+        if (!cancelled) {
+          setPayOffer(payload?.offer || null);
+        }
+      } catch (e) {
+        console.error(e);
+        if (!cancelled) {
+          setPayOfferError(e?.message || "Failed to load offer");
+        }
+      } finally {
+        if (!cancelled) setPayOfferLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [postOrderPayMode, payOrderId]);
+
+  useEffect(() => {
+    if (postOrderPayMode) {
+      setProduct(null);
+      setError("");
+      return;
+    }
+
     if (cartMode) {
       setProduct(null);
       setError("");
@@ -86,6 +148,12 @@ export default function PaymentPage() {
   }, [cartMode, productId]);
 
   useEffect(() => {
+    if (postOrderPayMode) {
+      setPaypalClientId("");
+      setPaypalError("");
+      return;
+    }
+
     if (!canUsePayPal) {
       setPaypalClientId("");
       setPaypalError("");
@@ -258,7 +326,11 @@ export default function PaymentPage() {
         });
         setCodSuccessIds(placed?.id ? [placed.id] : []);
         setCodSuccessOpen(true);
-        window.setTimeout(() => navigate("/account", { replace: true }), 3000);
+        const offerOrderId = placed?.id ? String(placed.id) : "";
+        window.setTimeout(
+          () => navigate("/account", { replace: true, state: { offerOrderId } }),
+          3000
+        );
         return;
       }
 
@@ -289,7 +361,11 @@ export default function PaymentPage() {
       if (cartMode) cart.clear();
       setCodSuccessIds(ids);
       setCodSuccessOpen(true);
-      window.setTimeout(() => navigate("/account", { replace: true }), 3000);
+      const offerOrderId = ids.length ? String(ids[0]) : "";
+      window.setTimeout(
+        () => navigate("/account", { replace: true, state: { offerOrderId } }),
+        3000
+      );
     } catch (e) {
       console.error(e);
       setStatus(e.message || "Failed to place COD order");
@@ -297,6 +373,114 @@ export default function PaymentPage() {
       setPlacing(false);
     }
   };
+
+  if (postOrderPayMode) {
+    if (payOfferLoading) {
+      return (
+        <div className="section">
+          <div className="container">
+            <h1 className="section-title">Payment</h1>
+            <p className="status">Loading offer…</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (payOfferError || !payOffer) {
+      const redirect = `/payment?payOrderId=${encodeURIComponent(payOrderId)}`;
+      return (
+        <div className="section">
+          <div className="container">
+            <h1 className="section-title">Payment</h1>
+            <p className="status">{payOfferError || "Offer not available"}</p>
+            <p style={{ marginTop: 12 }}>
+              <Link to={`/login?redirect=${encodeURIComponent(redirect)}&only=customer`}>Login</Link>
+              {" · "}
+              <Link to="/account">Back to My Orders</Link>
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    const currency = payOffer.currency || "INR";
+    const originalAmount = Number(payOffer.originalAmount) || 0;
+    const discountedAmount = Number(payOffer.discountedAmount) || 0;
+    const discountPercent = Number(payOffer.discountPercent) || 10;
+
+    return (
+      <div className="section">
+        <div className="container">
+          <h1 className="section-title">Choose Payment Option</h1>
+          <p className="section-subtitle">Pay now and get {discountPercent}% off on this order.</p>
+
+          <div className="payment-grid">
+            <div className="payment-card">
+              <div className="summary-title">Order Summary</div>
+              <div className="summary-meta" style={{ marginTop: 6 }}>
+                Order ID: {payOffer.orderId}
+              </div>
+              <div className="summary-meta" style={{ marginTop: 6 }}>
+                Original: {formatMoney(originalAmount, currency)}
+              </div>
+              <div className="summary-meta" style={{ marginTop: 6, fontWeight: 700 }}>
+                Payable (10% OFF): {formatMoney(discountedAmount, currency)}
+              </div>
+              <p style={{ marginTop: 14 }}>
+                <Link to="/account">← Back to My Orders</Link>
+              </p>
+            </div>
+
+            <div className="payment-card">
+              <div className="summary-title">Pay by QR</div>
+              <p className="summary-meta" style={{ marginTop: 6 }}>
+                Scan and pay using any UPI app.
+              </p>
+              <p className="summary-meta" style={{ marginTop: 8, fontWeight: 700 }}>
+                Amount: {formatMoney(discountedAmount, currency)}
+              </p>
+
+              <div className="qr-box" aria-label="QR code">
+                {qrMissing ? (
+                  <div className="status">
+                    Add your QR image at <b>frontend/public/qr.png</b>
+                  </div>
+                ) : (
+                  <img
+                    src={qrSrc}
+                    alt="UPI QR"
+                    onError={() => {
+                      if (qrSrc === "/qr.png") {
+                        setQrSrc("/qr.png.jpeg");
+                        return;
+                      }
+                      setQrMissing(true);
+                    }}
+                  />
+                )}
+              </div>
+              <p className="summary-meta" style={{ marginTop: 10 }}>
+                After payment, share the screenshot on WhatsApp.
+              </p>
+              <p className="summary-meta" style={{ marginTop: 8 }}>
+                <a
+                  href={`https://wa.me/919485615917?text=${encodeURIComponent(
+                    `Hi, I have completed the payment for Order ${payOffer.orderId}. Screenshot attached.`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="nav-link"
+                  style={{ padding: 0 }}
+                >
+                  Click here to send message
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
