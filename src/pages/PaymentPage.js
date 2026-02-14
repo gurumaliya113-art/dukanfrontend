@@ -145,7 +145,7 @@ export default function PaymentPage() {
         setError(err.message);
         setProduct(null);
       });
-  }, [cartMode, productId]);
+  }, [cartMode, postOrderPayMode, productId]);
 
   useEffect(() => {
     if (postOrderPayMode) {
@@ -171,7 +171,7 @@ export default function PaymentPage() {
         console.error(e);
         setPaypalError("Failed to load PayPal config");
       });
-  }, [canUsePayPal]);
+  }, [canUsePayPal, postOrderPayMode]);
 
   const canPlaceCod = cartMode
     ? !!(Array.isArray(cartItems) && cartItems.length && checkoutForm)
