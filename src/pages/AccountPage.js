@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { apiFetch } from "../api";
 
@@ -15,10 +15,13 @@ const formatDate = (value) => {
 
 export default function AccountPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState(null);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: "", message: "" });
+
+  const [offerPopup, setOfferPopup] = useState({ open: false, orderId: "" });
 
   const isLoggedIn = !!user;
 
@@ -72,6 +75,19 @@ export default function AccountPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn]);
 
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const orderId = location?.state?.offerOrderId ? String(location.state.offerOrderId) : "";
+    if (!orderId) return;
+
+    setOfferPopup({ open: true, orderId });
+
+    // Clear navigation state so popup doesn't show again on refresh/back.
+    navigate(location.pathname, { replace: true, state: {} });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, location.pathname]);
+
   const onRequestReturn = async (orderId) => {
     setStatus({ type: "", message: "" });
 
@@ -109,6 +125,15 @@ export default function AccountPage() {
     navigate(`/login?redirect=${encodeURIComponent("/account")}`);
   };
 
+  const onPayNowOffer = () => {
+    const id = String(offerPopup.orderId || "").trim();
+    if (!id) {
+      setOfferPopup({ open: false, orderId: "" });
+      return;
+    }
+    navigate(`/payment?payOrderId=${encodeURIComponent(id)}`);
+  };
+
   const displayName = useMemo(() => {
     if (!user) return "";
     return user.email || user.phone || user.id;
@@ -117,6 +142,27 @@ export default function AccountPage() {
   return (
     <div className="section">
       <div className="container">
+        {offerPopup.open ? (
+          <div className="success-overlay" role="dialog" aria-modal="true" aria-label="Pay offer">
+            <div className="success-modal">
+              <div className="success-title">Pay now & get 10% OFF</div>
+              <div className="success-subtitle">Offer for Order ID: {offerPopup.orderId}</div>
+              <div style={{ marginTop: 14, display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+                <button className="primary-btn" type="button" onClick={onPayNowOffer}>
+                  Pay Now
+                </button>
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={() => setOfferPopup({ open: false, orderId: "" })}
+                >
+                  Later
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         <h1 className="section-title">My Account</h1>
         <p className="section-subtitle">Order history and returns</p>
 
