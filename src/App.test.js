@@ -15,5 +15,5 @@ test("renders navbar brand", () => {
     </MemoryRouter>
   );
 
-  expect(screen.getByLabelText(/rk apparels home/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/zubilo home/i)).toBeInTheDocument();
 });

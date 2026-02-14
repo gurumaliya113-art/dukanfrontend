@@ -161,6 +161,23 @@ export default function AccountPage() {
                   const id = o.id;
                   const canReturn = !o.return_status;
                   const received = Array.isArray(o.tracking_received) ? o.tracking_received : [];
+
+                  const statusNorm = String(o.status || "").trim().toLowerCase();
+                  const confirmedDone =
+                    statusNorm === "confirmed" || statusNorm === "shipped" || statusNorm === "delivered";
+                  const shippedDone = !!o.picked_up_at || statusNorm === "shipped" || statusNorm === "delivered";
+                  const outForDeliveryDone =
+                    !!o.out_for_delivery || !!o.out_for_delivery_at || statusNorm === "delivered";
+                  const deliveredDone = !!o.delivered_at || statusNorm === "delivered";
+
+                  const steps = [
+                    { key: "placed", label: "Order Placed", done: true },
+                    { key: "confirmed", label: "Confirmed", done: confirmedDone },
+                    { key: "shipped", label: "Shipped", done: shippedDone },
+                    { key: "out", label: "Out for Delivery", done: outForDeliveryDone },
+                    { key: "delivered", label: "Delivered", done: deliveredDone },
+                  ];
+
                   return (
                     <div key={id} className="cart-card" style={{ padding: 16 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -184,19 +201,24 @@ export default function AccountPage() {
                           <div className="summary-meta" style={{ marginTop: 8, fontWeight: 600 }}>
                             Tracking
                           </div>
-                          <div className="summary-meta">
-                            Estimated delivery: {o.estimated_delivery_at ? formatDate(o.estimated_delivery_at) : "—"}
-                          </div>
-                          <div className="summary-meta">
-                            Picked up from: {o.picked_up_from ? o.picked_up_from : "—"}
-                            {o.picked_up_at ? ` (${formatDate(o.picked_up_at)})` : ""}
-                          </div>
-                          <div className="summary-meta">
-                            Out for delivery: {o.out_for_delivery ? "Yes" : "No"}
-                            {o.out_for_delivery_at ? ` (${formatDate(o.out_for_delivery_at)})` : ""}
-                          </div>
-                          <div className="summary-meta">
-                            Delivered: {o.delivered_at ? formatDate(o.delivered_at) : "—"}
+
+                          <div className="order-stepper" role="list" aria-label="Order tracking">
+                            {steps.map((s, idx) => (
+                              <React.Fragment key={s.key}>
+                                <div className={`order-step-box${s.done ? " done" : ""}`} role="listitem">
+                                  <div className="order-step-icon" aria-hidden="true">
+                                    {s.done ? "✓" : ""}
+                                  </div>
+                                  <div className="order-step-label">{s.label}</div>
+                                </div>
+                                {idx < steps.length - 1 ? (
+                                  <div
+                                    className={`order-step-connector${steps[idx + 1].done ? " done" : ""}`}
+                                    aria-hidden="true"
+                                  />
+                                ) : null}
+                              </React.Fragment>
+                            ))}
                           </div>
 
                           {received.length ? (

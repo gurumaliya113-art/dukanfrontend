@@ -1379,6 +1379,83 @@ p {
   font-size: 14px;
 }
 
+/* -------------------- ORDER TRACKING STEPPER -------------------- */
+
+.order-stepper {
+  margin-top: 10px;
+  padding: 12px 10px;
+  border: 1px solid var(--border);
+  background: rgba(250, 250, 250, 0.5);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+}
+
+.order-step-box {
+  flex: 0 0 82px;
+  min-width: 58px;
+  border: 1px solid var(--border);
+  background: rgba(250, 250, 250, 0.65);
+  padding: 10px 8px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.order-step-icon {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--border);
+  color: transparent;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.order-step-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--muted);
+  line-height: 1.15;
+}
+
+.order-step-box.done .order-step-icon {
+  border-color: green;
+  color: green;
+}
+
+.order-step-box.done .order-step-label {
+  color: var(--text);
+}
+
+.order-step-connector {
+  flex: 1 0 16px;
+  min-width: 14px;
+  height: 3px;
+  background: rgba(26, 26, 26, 0.18);
+}
+
+.order-step-connector.done {
+  background: green;
+}
+
+@media (max-width: 560px) {
+  .order-stepper {
+    gap: 8px;
+    padding: 10px 8px;
+  }
+
+  .order-step-box {
+    flex-basis: 74px;
+    min-width: 54px;
+    padding: 9px 6px;
+  }
+}
+
 .summary-lines {
   margin-top: 12px;
   display: grid;
