@@ -8,6 +8,44 @@ import ReviewsSlider from "../components/ReviewsSlider";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 
+function normalizeProductSizes(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean).map((s) => String(s));
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+
+    // JSON string like: ["S","M"]
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.filter(Boolean).map((s) => String(s));
+      } catch {
+        // ignore
+      }
+    }
+
+    // Postgres array text like: {"0-1 year","S"}
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      const inner = trimmed.slice(1, -1).trim();
+      if (!inner) return [];
+      return inner
+        .split(",")
+        .map((s) => s.trim().replace(/^"|"$/g, ""))
+        .filter(Boolean);
+    }
+
+    // Fallback comma-separated
+    return trimmed
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
 export default function ProductPage() {
   const { id } = useParams();
   const productId = useMemo(() => Number(id), [id]);
@@ -104,7 +142,8 @@ export default function ProductPage() {
   const unit = getProductUnitPrice(product, region);
   const unitMrp = getProductUnitMrp(product, region);
 
-  const sizes = Array.isArray(product?.sizes) && product.sizes.length ? product.sizes : DEFAULT_SIZES;
+  const productSizes = normalizeProductSizes(product?.sizes);
+  const sizes = productSizes.length ? productSizes : DEFAULT_SIZES;
   const showMrp =
     Number(unitMrp?.amount || 0) > 0 &&
     unitMrp?.currency === unit?.currency &&
