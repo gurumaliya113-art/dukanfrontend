@@ -29,6 +29,16 @@ const toDateTimeLocalValue = (iso) => {
   }
 };
 
+const formatDateTime = (value) => {
+  try {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString();
+  } catch {
+    return "";
+  }
+};
+
 export default function AdminPage() {
   const [form, setForm] = useState(initialForm);
   const [images, setImages] = useState([]);
@@ -136,7 +146,27 @@ export default function AdminPage() {
       }
 
       const list = Array.isArray(payload?.orders) ? payload.orders : [];
-      setOrders(list);
+      const weight = {
+        pending: 0,
+        confirmed: 1,
+        shipped: 2,
+        delivered: 3,
+        cancelled: 4,
+      };
+
+      const sorted = [...list].sort((a, b) => {
+        const sa = String(a?.status || "").toLowerCase();
+        const sb = String(b?.status || "").toLowerCase();
+        const wa = Object.prototype.hasOwnProperty.call(weight, sa) ? weight[sa] : 99;
+        const wb = Object.prototype.hasOwnProperty.call(weight, sb) ? weight[sb] : 99;
+        if (wa !== wb) return wa - wb;
+
+        const ta = a?.created_at ? new Date(a.created_at).getTime() : 0;
+        const tb = b?.created_at ? new Date(b.created_at).getTime() : 0;
+        return tb - ta;
+      });
+
+      setOrders(sorted);
       if (!selectedOrderId && list.length) {
         setSelectedOrderId(String(list[0].id));
       }
@@ -286,6 +316,43 @@ export default function AdminPage() {
     } catch (e) {
       console.error(e);
       setStatus({ type: "error", message: e.message || "Failed to add received location" });
+    } finally {
+      setIsTrackingBusy(false);
+    }
+  };
+
+  const onUpdateOrderStatus = async (orderId, nextStatus) => {
+    setStatus({ type: "", message: "" });
+    if (!admin) {
+      setStatus({ type: "error", message: "Please login as admin first" });
+      return;
+    }
+
+    setIsTrackingBusy(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+
+      const res = await apiFetch(`/admin/orders/${encodeURIComponent(orderId)}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      setStatus({ type: "success", message: "Order status updated" });
+      await loadOrders();
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: "error", message: e.message || "Failed to update order status" });
     } finally {
       setIsTrackingBusy(false);
     }
@@ -566,7 +633,7 @@ export default function AdminPage() {
 
   return (
     <div className="section">
-      <div className="container" style={{ maxWidth: 720 }}>
+      <div className="container" style={{ maxWidth: 980 }}>
         <h1 className="section-title">Admin Panel</h1>
         <p className="section-subtitle">Add products to your store</p>
 
@@ -665,6 +732,87 @@ export default function AdminPage() {
 
       {admin ? (
         <>
+          <div style={{ marginTop: 18 }}>
+            <h2 className="section-title" style={{ fontSize: 28 }}>
+              Orders ({orders.length})
+            </h2>
+            <p className="section-subtitle">All incoming orders on this website</p>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <button
+                className="secondary-btn"
+                type="button"
+                onClick={loadOrders}
+                disabled={isOrdersLoading || isTrackingBusy}
+              >
+                {isOrdersLoading ? "Loading…" : "Refresh Orders"}
+              </button>
+            </div>
+
+            {isOrdersLoading ? <p className="status">Loading…</p> : null}
+            {!isOrdersLoading && orders.length === 0 ? <p className="status">No orders yet.</p> : null}
+
+            <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+              {orders.map((o) => (
+                <div key={o.id} className="cart-card" style={{ padding: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <div>
+                      <div className="summary-title">{o.product_name || "Order"}</div>
+                      <div className="summary-meta" style={{ marginTop: 6 }}>
+                        Order ID: {o.id}
+                      </div>
+                      <div className="summary-meta">Date: {formatDateTime(o.created_at)}</div>
+                      {o.size ? <div className="summary-meta">Size: {o.size}</div> : null}
+                      <div className="summary-meta">
+                        Amount: {o.amount} {o.currency || ""} · Payment: {o.payment_method}
+                      </div>
+                      <div className="summary-meta">Status: {o.status}</div>
+                      {o.return_status ? <div className="summary-meta">Return: {o.return_status}</div> : null}
+
+                      <div className="summary-meta" style={{ marginTop: 10, fontWeight: 600 }}>
+                        Customer Details
+                      </div>
+                      <div className="summary-meta">Name: {o.customer_name || "—"}</div>
+                      <div className="summary-meta">Phone: {o.phone || "—"}</div>
+                      <div className="summary-meta">Email: {o.email || "—"}</div>
+                      <div className="summary-meta">
+                        Address: {o.address || ""}{o.city ? `, ${o.city}` : ""}{o.state ? `, ${o.state}` : ""}{o.pincode ? ` - ${o.pincode}` : ""}
+                      </div>
+                    </div>
+
+                    <div style={{ minWidth: 220 }}>
+                      <label style={{ display: "grid", gap: 6 }}>
+                        Update Status
+                        <select
+                          value={o.status || "pending"}
+                          onChange={(e) => onUpdateOrderStatus(o.id, e.target.value)}
+                          disabled={isTrackingBusy}
+                          style={{ width: "100%" }}
+                        >
+                          <option value="pending">pending</option>
+                          <option value="confirmed">confirmed</option>
+                          <option value="shipped">shipped</option>
+                          <option value="delivered">delivered</option>
+                          <option value="cancelled">cancelled</option>
+                        </select>
+                      </label>
+
+                      <button
+                        className="secondary-btn"
+                        type="button"
+                        onClick={() => setSelectedOrderId(String(o.id))}
+                        disabled={isTrackingBusy}
+                        style={{ marginTop: 10, width: "100%" }}
+                      >
+                        Open in Tracking Panel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, marginTop: 18 }}>
             <label>
               Category*
