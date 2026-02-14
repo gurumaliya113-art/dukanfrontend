@@ -69,6 +69,7 @@ export default function AdminPage() {
 
   const [orders, setOrders] = useState([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState("");
   const [trackingForm, setTrackingForm] = useState({
     estimatedDeliveryAt: "",
@@ -131,6 +132,7 @@ export default function AdminPage() {
   const loadOrders = async () => {
     if (!admin) return;
     setIsOrdersLoading(true);
+    setOrdersError("");
     try {
       const token = await getAccessToken();
       if (!token) throw new Error("Missing admin session");
@@ -172,7 +174,9 @@ export default function AdminPage() {
       }
     } catch (e) {
       console.error(e);
-      setStatus({ type: "error", message: e.message || "Failed to load orders" });
+      const msg = e.message || "Failed to load orders";
+      setOrdersError(msg);
+      setStatus({ type: "error", message: msg });
     } finally {
       setIsOrdersLoading(false);
     }
@@ -191,7 +195,20 @@ export default function AdminPage() {
       setProducts([]);
       setOrders([]);
       setSelectedOrderId("");
+      setOrdersError("");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [admin]);
+
+  // Auto-refresh orders so newly placed orders show up quickly.
+  useEffect(() => {
+    if (!admin) return undefined;
+
+    const id = setInterval(() => {
+      loadOrders();
+    }, 15000);
+
+    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [admin]);
 
@@ -750,6 +767,11 @@ export default function AdminPage() {
             </div>
 
             {isOrdersLoading ? <p className="status">Loading…</p> : null}
+            {ordersError ? (
+              <p className="status" style={{ color: "crimson" }}>
+                {ordersError}
+              </p>
+            ) : null}
             {!isOrdersLoading && orders.length === 0 ? <p className="status">No orders yet.</p> : null}
 
             <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
