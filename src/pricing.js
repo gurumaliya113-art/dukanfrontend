@@ -28,6 +28,25 @@ export function getProductUnitPrice(product, region) {
   return { amount: 0, currency: fallback.code, symbol: fallback.symbol };
 }
 
+export function getProductUnitMrp(product, region) {
+  const r = String(region || "").toUpperCase();
+
+  if (r === REGION.US) {
+    const usd = Number(product?.mrp_usd ?? product?.mrpUsd ?? NaN);
+    if (!Number.isNaN(usd) && usd > 0) {
+      return { amount: usd, currency: "USD", symbol: "$" };
+    }
+  }
+
+  const inr = Number(product?.mrp_inr ?? product?.mrpInr ?? product?.mrp ?? NaN);
+  if (!Number.isNaN(inr) && inr > 0) {
+    return { amount: inr, currency: "INR", symbol: "₹" };
+  }
+
+  const fallback = getCurrency(region);
+  return { amount: 0, currency: fallback.code, symbol: fallback.symbol };
+}
+
 export function getCartItemUnitPrice(item, region) {
   const r = String(region || "").toUpperCase();
 

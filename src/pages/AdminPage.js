@@ -7,6 +7,8 @@ import { apiFetch, getApiBase } from "../api";
 const initialForm = {
   name: "",
   category: "new",
+  mrp_inr: "",
+  mrp_usd: "",
   price_inr: "",
   price_usd: "",
   description: "",
@@ -416,6 +418,21 @@ export default function AdminPage() {
 
   const onChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "mrp_inr") {
+      const n = Number(value);
+      const half = !Number.isNaN(n) && n > 0 ? String(Math.round(n / 2)) : "";
+      setForm((prev) => ({ ...prev, mrp_inr: value, price_inr: half }));
+      return;
+    }
+
+    if (name === "mrp_usd") {
+      const n = Number(value);
+      const half = !Number.isNaN(n) && n > 0 ? String(Math.round(n / 2)) : "";
+      setForm((prev) => ({ ...prev, mrp_usd: value, price_usd: half }));
+      return;
+    }
+
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -428,8 +445,13 @@ export default function AdminPage() {
       return;
     }
 
-    if (!form.name.trim() || form.price_inr === "" || form.price_usd === "") {
-      setStatus({ type: "error", message: "Name + Price INR + Price USD required hai" });
+    if (!form.name.trim() || form.mrp_inr === "" || form.mrp_usd === "") {
+      setStatus({ type: "error", message: "Name + MRP INR + MRP USD required hai" });
+      return;
+    }
+
+    if (form.price_inr === "" || form.price_usd === "") {
+      setStatus({ type: "error", message: "MRP invalid hai (Price auto-calc nahi hua)." });
       return;
     }
 
@@ -441,6 +463,8 @@ export default function AdminPage() {
       const body = new FormData();
       body.append("category", normalizeCategory(form.category));
       body.append("name", form.name);
+      body.append("mrp_inr", form.mrp_inr);
+      body.append("mrp_usd", form.mrp_usd);
       body.append("price_inr", form.price_inr);
       body.append("price_usd", form.price_usd);
       body.append("price", form.price_inr);
@@ -513,6 +537,8 @@ export default function AdminPage() {
     setEditForm({
       name: p.name || "",
       category: normalizeCategory(p.category),
+      mrp_inr: p.mrp_inr ?? "",
+      mrp_usd: p.mrp_usd ?? "",
       price_inr: p.price_inr ?? p.price ?? "",
       price_usd: p.price_usd ?? "",
       description: p.description || "",
@@ -588,6 +614,21 @@ export default function AdminPage() {
 
   const onEditChange = (e) => {
     const { name, value } = e.target;
+
+    if (name === "mrp_inr") {
+      const n = Number(value);
+      const half = !Number.isNaN(n) && n > 0 ? String(Math.round(n / 2)) : "";
+      setEditForm((prev) => ({ ...prev, mrp_inr: value, price_inr: half || prev.price_inr }));
+      return;
+    }
+
+    if (name === "mrp_usd") {
+      const n = Number(value);
+      const half = !Number.isNaN(n) && n > 0 ? String(Math.round(n / 2)) : "";
+      setEditForm((prev) => ({ ...prev, mrp_usd: value, price_usd: half || prev.price_usd }));
+      return;
+    }
+
     setEditForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -612,6 +653,8 @@ export default function AdminPage() {
       const body = new FormData();
       body.append("category", normalizeCategory(editForm.category));
       body.append("name", editForm.name);
+      if (editForm.mrp_inr !== undefined) body.append("mrp_inr", editForm.mrp_inr);
+      if (editForm.mrp_usd !== undefined) body.append("mrp_usd", editForm.mrp_usd);
       body.append("price_inr", editForm.price_inr);
       body.append("price_usd", editForm.price_usd);
       body.append("price", editForm.price_inr);
@@ -967,12 +1010,41 @@ export default function AdminPage() {
             </label>
 
             <label>
+              MRP INR (India)*
+              <input
+                name="mrp_inr"
+                value={form.mrp_inr}
+                onChange={onChange}
+                type="number"
+                style={{ width: "100%" }}
+                placeholder="e.g. 1999"
+              />
+            </label>
+
+            <label>
+              MRP USD (USA)*
+              <input
+                name="mrp_usd"
+                value={form.mrp_usd}
+                onChange={onChange}
+                type="number"
+                style={{ width: "100%" }}
+                placeholder="e.g. 49"
+              />
+            </label>
+
+            <div className="status">
+              MRP dalte hi Price auto 50% OFF set ho jayega.
+            </div>
+
+            <label>
               Price INR (India)*
               <input
                 name="price_inr"
                 value={form.price_inr}
                 onChange={onChange}
                 type="number"
+                disabled={!!String(form.mrp_inr || "").trim()}
                 style={{ width: "100%" }}
               />
             </label>
@@ -984,6 +1056,7 @@ export default function AdminPage() {
                 value={form.price_usd}
                 onChange={onChange}
                 type="number"
+                disabled={!!String(form.mrp_usd || "").trim()}
                 style={{ width: "100%" }}
               />
             </label>
@@ -1191,6 +1264,7 @@ export default function AdminPage() {
                             value={editForm.price_inr}
                             onChange={onEditChange}
                             type="number"
+                            disabled={!!String(editForm.mrp_inr || "").trim()}
                           />
                         </label>
 
@@ -1201,6 +1275,31 @@ export default function AdminPage() {
                             value={editForm.price_usd}
                             onChange={onEditChange}
                             type="number"
+                            disabled={!!String(editForm.mrp_usd || "").trim()}
+                          />
+                        </label>
+
+                        <label>
+                          MRP INR
+                          <input
+                            name="mrp_inr"
+                            value={editForm.mrp_inr}
+                            onChange={onEditChange}
+                            type="number"
+                            disabled={isUpdatingId === p.id}
+                            placeholder="e.g. 1999"
+                          />
+                        </label>
+
+                        <label>
+                          MRP USD
+                          <input
+                            name="mrp_usd"
+                            value={editForm.mrp_usd}
+                            onChange={onEditChange}
+                            type="number"
+                            disabled={isUpdatingId === p.id}
+                            placeholder="e.g. 49"
                           />
                         </label>
                       </div>

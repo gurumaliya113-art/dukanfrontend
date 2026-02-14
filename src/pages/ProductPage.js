@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useCart } from "../cartContext";
 import { useRegion } from "../regionContext";
-import { formatMoney, getProductUnitPrice } from "../pricing";
+import { formatMoney, getProductUnitMrp, getProductUnitPrice } from "../pricing";
 import { apiFetch } from "../api";
 import ReviewsSlider from "../components/ReviewsSlider";
 
@@ -102,6 +102,11 @@ export default function ProductPage() {
   const images = [product.image1, product.image2, product.image3, product.image4].filter(Boolean);
   const mainImage = activeImage || images[0] || "https://via.placeholder.com/900";
   const unit = getProductUnitPrice(product, region);
+  const unitMrp = getProductUnitMrp(product, region);
+  const showMrp =
+    Number(unitMrp?.amount || 0) > 0 &&
+    unitMrp?.currency === unit?.currency &&
+    Number(unitMrp.amount) > Number(unit.amount || 0);
 
   return (
     <div className="detail">
@@ -131,7 +136,15 @@ export default function ProductPage() {
 
           <div>
             <h1 className="detail-title">{product.name}</h1>
-            <div className="detail-price">{formatMoney(unit.amount, unit.currency)}</div>
+            <div className="detail-price-row">
+              <span className="detail-price">{formatMoney(unit.amount, unit.currency)}</span>
+              {showMrp ? (
+                <>
+                  <span className="detail-mrp">{formatMoney(unitMrp.amount, unitMrp.currency)}</span>
+                  <span className="detail-off">50% OFF</span>
+                </>
+              ) : null}
+            </div>
             {product.description ? (
               <p className="detail-desc">{product.description}</p>
             ) : null}
