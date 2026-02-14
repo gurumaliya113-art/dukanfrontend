@@ -84,18 +84,6 @@ export default function Navbar() {
               />
             </svg>
           </button>
-
-          <button className="icon-btn" type="button" aria-label="Search">
-            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-              <path
-                d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Zm7.9 1.1-4.1-4.1"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-              />
-            </svg>
-          </button>
         </div>
 
         <Link to="/" className="brand" aria-label="ZUBILO Home">

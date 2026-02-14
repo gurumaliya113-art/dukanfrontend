@@ -450,7 +450,7 @@ p {
 
 @media (max-width: 640px) {
   .nav-inner {
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 1fr auto 1fr;
     grid-template-areas: "left brand right";
     height: 64px;
   }
@@ -464,11 +464,13 @@ p {
   .nav-right {
     grid-area: right;
     gap: 10px;
+    justify-self: end;
   }
 
   .nav-left-actions {
     display: flex;
     grid-area: left;
+    justify-self: start;
   }
 
   .nav-left-categories {
