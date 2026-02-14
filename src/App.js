@@ -8,7 +8,6 @@ import ProductPage from "./pages/ProductPage";
 import CheckoutPage from "./pages/CheckoutPage";
 import PaymentPage from "./pages/PaymentPage";
 import CartPage from "./pages/CartPage";
-import CustomerAuthPage from "./pages/CustomerAuthPage";
 import LoginPage from "./pages/LoginPage";
 import AccountPage from "./pages/AccountPage";
 import Footer from "./components/Footer";
