@@ -313,7 +313,10 @@ export default function PaymentPage() {
           const msg = data?.error || data?.message || `Failed (${res.status})`;
           throw new Error(msg);
         }
-        return data;
+
+        // Backend may return either the inserted row OR { ok, orderId, order }.
+        const id = data?.orderId ?? data?.order?.id ?? data?.id ?? null;
+        return { ...data, id };
       };
 
       if (!cartMode) {
@@ -324,9 +327,10 @@ export default function PaymentPage() {
           currency: unit.currency,
           unitPrice: unit.amount,
         });
-        setCodSuccessIds(placed?.id ? [placed.id] : []);
+        const placedId = placed?.id ? String(placed.id) : "";
+        setCodSuccessIds(placedId ? [placedId] : []);
         setCodSuccessOpen(true);
-        const offerOrderId = placed?.id ? String(placed.id) : "";
+        const offerOrderId = placedId;
         window.setTimeout(
           () => navigate("/account", { replace: true, state: { offerOrderId } }),
           3000
@@ -357,7 +361,10 @@ export default function PaymentPage() {
         results.push(placed);
       }
 
-      const ids = results.map((r) => r.id).filter(Boolean);
+      const ids = results
+        .map((r) => r?.orderId ?? r?.order?.id ?? r?.id)
+        .filter(Boolean)
+        .map((x) => String(x));
       if (cartMode) cart.clear();
       setCodSuccessIds(ids);
       setCodSuccessOpen(true);
