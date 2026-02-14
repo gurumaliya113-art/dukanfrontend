@@ -93,6 +93,12 @@ export default function HeroSlider({ images, intervalMs = 3800 }) {
   const kicker = active?.kicker || "";
   const headline = active?.headline || "";
   const hasText = Boolean(kicker || headline);
+  const textStyle = hasText
+    ? {
+        "--heroTextTop": active?.textTop,
+        "--heroTextTopMobile": active?.textTopMobile,
+      }
+    : undefined;
 
   return (
     <div className="hero-slider" aria-label="Featured images">
@@ -148,6 +154,7 @@ export default function HeroSlider({ images, intervalMs = 3800 }) {
         <div
           className={textOut ? "hero-text hero-text-out" : "hero-text"}
           key={`text-${index}-${animNonce}`}
+          style={textStyle}
           aria-hidden="true"
         >
           {kicker ? <div className="hero-text-kicker">{kicker}</div> : null}
