@@ -31,10 +31,7 @@ export default function Navbar() {
     <header className={scrolled ? "nav scrolled" : "nav"}>
       <div className="promo-bar" role="region" aria-label="Announcement">
         <div className="container promo-inner">
-          <span>The Spring Summer'26 Drop is Here!</span>
-          <a className="promo-link" href="#arrivals">
-            Shop Now
-          </a>
+          <span>Free Shipping All Over World • 7 day Return Window All Over World</span>
         </div>
       </div>
 
@@ -83,8 +80,8 @@ export default function Navbar() {
           </button>
         </div>
 
-        <Link to="/" className="brand" aria-label="KB Home">
-          KB
+        <Link to="/" className="brand" aria-label="ZUBILO Home">
+          ZUBILO
         </Link>
 
         <div className="nav-right" aria-label="Actions">

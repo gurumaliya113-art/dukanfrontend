@@ -214,7 +214,7 @@ export default function LoginPage() {
         <div className="auth-card" style={{ marginTop: 16 }}>
           <div className="auth-head">
             <div>
-              <div className="summary-title">Customer Login</div>
+              <div className="summary-title">LOGIN</div>
               <div className="summary-meta">
                 {sessionUser
                   ? `Logged in as: ${sessionUser.email || sessionUser.phone || sessionUser.id}`
@@ -282,13 +282,22 @@ export default function LoginPage() {
             </>
           ) : (
             <div style={{ marginTop: 10 }}>
-              <Link
-                to={redirectTo}
-                className="primary-btn"
-                style={{ display: "inline-block", textDecoration: "none" }}
-              >
-                Continue
-              </Link>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <Link
+                  to={redirectTo}
+                  className="primary-btn"
+                  style={{ display: "inline-block", textDecoration: "none" }}
+                >
+                  Continue
+                </Link>
+                <Link
+                  to="/account"
+                  className="secondary-btn"
+                  style={{ display: "inline-block", textDecoration: "none" }}
+                >
+                  My Orders
+                </Link>
+              </div>
             </div>
           )}
 

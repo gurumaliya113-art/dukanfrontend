@@ -83,9 +83,9 @@ export default function ShopPage() {
         <HeroSlider images={sliderImages} />
       </section>
 
-      <section className="first-on" aria-label="First on KB">
+      <section className="first-on" aria-label="First on ZUBILO">
         <div className="container">
-          <div className="first-on-inner">FIRST ON KB.in</div>
+          <div className="first-on-inner">FIRST ON ZUBILO</div>
         </div>
       </section>
 

@@ -10,6 +10,7 @@ import PaymentPage from "./pages/PaymentPage";
 import CartPage from "./pages/CartPage";
 import CustomerAuthPage from "./pages/CustomerAuthPage";
 import LoginPage from "./pages/LoginPage";
+import AccountPage from "./pages/AccountPage";
 import Footer from "./components/Footer";
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
             <Route path="/payment" element={<PaymentPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/customer-auth" element={<LoginPage />} />
+            <Route path="/account" element={<AccountPage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Routes>
         </AnimatePresence>

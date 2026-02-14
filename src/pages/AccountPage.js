@@ -1,0 +1,215 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "../supabaseClient";
+import { apiFetch } from "../api";
+
+const formatDate = (value) => {
+  try {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString();
+  } catch {
+    return "";
+  }
+};
+
+export default function AccountPage() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState({ type: "", message: "" });
+
+  const isLoggedIn = !!user;
+
+  const loadOrders = async () => {
+    setStatus({ type: "", message: "" });
+    setLoading(true);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token || "";
+      if (!token) {
+        setOrders([]);
+        return;
+      }
+
+      const res = await apiFetch("/customer/orders", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      setOrders(Array.isArray(payload?.orders) ? payload.orders : []);
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: "error", message: e?.message || "Failed to load orders" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const refresh = async () => {
+      const { data } = await supabase.auth.getSession();
+      setUser(data?.session?.user || null);
+    };
+
+    refresh();
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      refresh();
+    });
+
+    return () => {
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isLoggedIn) loadOrders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
+
+  const onRequestReturn = async (orderId) => {
+    setStatus({ type: "", message: "" });
+
+    const reason = window.prompt("Reason for return (optional):", "") || "";
+
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data?.session?.access_token || "";
+      if (!token) throw new Error("Please login first");
+
+      const res = await apiFetch(`/customer/orders/${encodeURIComponent(orderId)}/return`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reason: reason.trim() || null }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      setStatus({ type: "success", message: "Return requested" });
+      await loadOrders();
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: "error", message: e?.message || "Return request failed" });
+    }
+  };
+
+  const showLogin = () => {
+    navigate(`/login?redirect=${encodeURIComponent("/account")}`);
+  };
+
+  const displayName = useMemo(() => {
+    if (!user) return "";
+    return user.email || user.phone || user.id;
+  }, [user]);
+
+  return (
+    <div className="section">
+      <div className="container">
+        <h1 className="section-title">My Account</h1>
+        <p className="section-subtitle">Order history and returns</p>
+
+        {!isLoggedIn ? (
+          <div className="auth-card" style={{ marginTop: 16, maxWidth: 720 }}>
+            <div className="summary-title">Login required</div>
+            <p className="summary-meta" style={{ marginTop: 8 }}>
+              Please login to view your past orders.
+            </p>
+            <button className="primary-btn" type="button" onClick={showLogin}>
+              Login
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="auth-card" style={{ marginTop: 16 }}>
+              <div className="summary-title">Logged in as</div>
+              <div className="summary-meta" style={{ marginTop: 6 }}>
+                {displayName}
+              </div>
+              <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <button className="secondary-btn" type="button" onClick={loadOrders} disabled={loading}>
+                  {loading ? "Refreshing…" : "Refresh"}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <div className="summary-title">Order History</div>
+              <div className="summary-meta" style={{ marginTop: 6 }}>
+                {loading ? "Loading…" : `${orders.length} orders`}
+              </div>
+
+              {orders.length === 0 && !loading ? (
+                <p className="status" style={{ marginTop: 12 }}>
+                  No orders found for this account.
+                </p>
+              ) : null}
+
+              <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                {orders.map((o) => {
+                  const id = o.id;
+                  const canReturn = !o.return_status;
+                  return (
+                    <div key={id} className="cart-card" style={{ padding: 16 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                        <div>
+                          <div className="summary-title">{o.product_name || "Order"}</div>
+                          <div className="summary-meta" style={{ marginTop: 6 }}>
+                            Order ID: {id}
+                          </div>
+                          <div className="summary-meta">Date: {formatDate(o.created_at)}</div>
+                          {o.size ? <div className="summary-meta">Size: {o.size}</div> : null}
+                          <div className="summary-meta">
+                            Amount: {o.amount} {o.currency || ""}
+                          </div>
+                          <div className="summary-meta">
+                            Payment: {o.payment_method} · Status: {o.status}
+                          </div>
+                          <div className="summary-meta">
+                            Return: {o.return_status ? o.return_status : "—"}
+                          </div>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                          <button
+                            className={canReturn ? "secondary-btn" : "secondary-btn"}
+                            type="button"
+                            disabled={!canReturn}
+                            onClick={() => onRequestReturn(id)}
+                          >
+                            {canReturn ? "Request Return" : "Return Requested"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
+        {status.message ? (
+          <p style={{ color: status.type === "error" ? "crimson" : "green", marginTop: 12 }}>
+            {status.message}
+          </p>
+        ) : null}
+
+        <p style={{ marginTop: 16 }}>
+          <Link to="/">← Back to shop</Link>
+        </p>
+      </div>
+    </div>
+  );
+}
