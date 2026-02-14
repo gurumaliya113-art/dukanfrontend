@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { CATEGORIES, normalizeCategory } from "../categories";
@@ -40,6 +40,8 @@ const formatDateTime = (value) => {
 };
 
 export default function AdminPage() {
+  const trackingSectionRef = useRef(null);
+
   const [form, setForm] = useState(initialForm);
   const [images, setImages] = useState([]);
   const [status, setStatus] = useState({ type: "", message: "" });
@@ -83,6 +85,7 @@ export default function AdminPage() {
   const [receivedAt, setReceivedAt] = useState("");
   const [receivedNote, setReceivedNote] = useState("");
   const [isTrackingBusy, setIsTrackingBusy] = useState(false);
+  const [trackingDirty, setTrackingDirty] = useState(false);
 
   const productCount = useMemo(() => products.length, [products]);
 
@@ -205,15 +208,18 @@ export default function AdminPage() {
     if (!admin) return undefined;
 
     const id = setInterval(() => {
+      if (isTrackingBusy) return;
+      if (trackingDirty) return;
       loadOrders();
     }, 15000);
 
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [admin]);
+  }, [admin, isTrackingBusy, trackingDirty]);
 
   useEffect(() => {
     if (!selectedOrderId) return;
+    if (trackingDirty) return;
     const o = orders.find((x) => String(x.id) === String(selectedOrderId));
     if (!o) return;
 
@@ -229,10 +235,24 @@ export default function AdminPage() {
     setReceivedLocation("");
     setReceivedAt("");
     setReceivedNote("");
-  }, [selectedOrderId, orders]);
+  }, [selectedOrderId, orders, trackingDirty]);
+
+  const selectOrderForTracking = (orderId) => {
+    const next = String(orderId || "");
+    setTrackingDirty(false);
+    setSelectedOrderId(next);
+    setTimeout(() => {
+      try {
+        trackingSectionRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+      } catch {
+        // ignore
+      }
+    }, 0);
+  };
 
   const onTrackingChange = (e) => {
     const { name, value } = e.target;
+    setTrackingDirty(true);
     setTrackingForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -276,6 +296,7 @@ export default function AdminPage() {
       }
 
       setStatus({ type: "success", message: "Tracking updated" });
+      setTrackingDirty(false);
       await loadOrders();
     } catch (e) {
       console.error(e);
@@ -329,6 +350,7 @@ export default function AdminPage() {
       setReceivedLocation("");
       setReceivedAt("");
       setReceivedNote("");
+      setTrackingDirty(false);
       await loadOrders();
     } catch (e) {
       console.error(e);
@@ -822,7 +844,7 @@ export default function AdminPage() {
                       <button
                         className="secondary-btn"
                         type="button"
-                        onClick={() => setSelectedOrderId(String(o.id))}
+                        onClick={() => selectOrderForTracking(o.id)}
                         disabled={isTrackingBusy}
                         style={{ marginTop: 10, width: "100%" }}
                       >
@@ -1097,7 +1119,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div style={{ marginTop: 28 }}>
+          <div style={{ marginTop: 28 }} ref={trackingSectionRef}>
             <h2 className="section-title" style={{ fontSize: 28 }}>
               Order Tracking
             </h2>
@@ -1111,7 +1133,7 @@ export default function AdminPage() {
                   Select Order*
                   <select
                     value={selectedOrderId}
-                    onChange={(e) => setSelectedOrderId(e.target.value)}
+                    onChange={(e) => selectOrderForTracking(e.target.value)}
                     style={{ width: "100%" }}
                   >
                     <option value="">-- Select --</option>
@@ -1226,7 +1248,10 @@ export default function AdminPage() {
                           type="text"
                           placeholder="e.g., Gurgaon"
                           value={receivedLocation}
-                          onChange={(e) => setReceivedLocation(e.target.value)}
+                          onChange={(e) => {
+                            setTrackingDirty(true);
+                            setReceivedLocation(e.target.value);
+                          }}
                           style={{ width: "100%" }}
                         />
                       </label>
@@ -1236,7 +1261,10 @@ export default function AdminPage() {
                         <input
                           type="datetime-local"
                           value={receivedAt}
-                          onChange={(e) => setReceivedAt(e.target.value)}
+                          onChange={(e) => {
+                            setTrackingDirty(true);
+                            setReceivedAt(e.target.value);
+                          }}
                           style={{ width: "100%" }}
                         />
                       </label>
@@ -1246,7 +1274,10 @@ export default function AdminPage() {
                         <input
                           type="text"
                           value={receivedNote}
-                          onChange={(e) => setReceivedNote(e.target.value)}
+                          onChange={(e) => {
+                            setTrackingDirty(true);
+                            setReceivedNote(e.target.value);
+                          }}
                           style={{ width: "100%" }}
                         />
                       </label>
