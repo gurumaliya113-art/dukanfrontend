@@ -89,19 +89,12 @@ export default function Navbar() {
 
         <div className="nav-right" aria-label="Actions">
           <NavLink
-            to="/admin"
+            to="/login"
             className={({ isActive }) =>
               isActive ? "nav-link active admin-link" : "nav-link admin-link"
             }
           >
-            ADMIN
-          </NavLink>
-
-          <NavLink
-            to="/customer-auth"
-            className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-          >
-            CUSTOMER LOGIN
+            LOGIN
           </NavLink>
 
           <label className="sr-only" htmlFor="region-select-top">
@@ -148,19 +141,12 @@ export default function Navbar() {
         <div className="container mobile-menu-inner" aria-label="Menu">
           <div className="mobile-menu-actions">
             <NavLink
-              to="/admin"
+              to="/login"
               className={({ isActive }) =>
                 isActive ? "nav-link active" : "nav-link"
               }
             >
-              ADMIN
-            </NavLink>
-
-            <NavLink
-              to="/customer-auth"
-              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
-            >
-              CUSTOMER LOGIN
+              LOGIN
             </NavLink>
 
             <label className="sr-only" htmlFor="region-select-menu">

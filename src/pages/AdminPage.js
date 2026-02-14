@@ -395,8 +395,8 @@ export default function AdminPage() {
 
           <div className="summary-meta" style={{ marginTop: 10 }}>
             Need customer login?{" "}
-            <Link to="/customer-auth" style={{ fontWeight: 600 }}>
-              Login as Customer
+            <Link to="/login" style={{ fontWeight: 600 }}>
+              Login
             </Link>
           </div>
 

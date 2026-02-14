@@ -292,7 +292,7 @@ export default function CheckoutPage() {
                     className="secondary-btn"
                     onClick={() => {
                       const redirect = `${location.pathname}${location.search || ""}`;
-                      navigate(`/customer-auth?redirect=${encodeURIComponent(redirect)}`);
+                      navigate(`/login?redirect=${encodeURIComponent(redirect)}`);
                     }}
                   >
                     Login to proceed
