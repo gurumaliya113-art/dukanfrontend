@@ -241,6 +241,14 @@ export default function AdminPage() {
     const next = String(orderId || "");
     setTrackingDirty(false);
     setSelectedOrderId(next);
+
+    try {
+      // Native anchor navigation as a fallback.
+      window.location.hash = "order-tracking";
+    } catch {
+      // ignore
+    }
+
     setTimeout(() => {
       try {
         trackingSectionRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
@@ -794,6 +802,11 @@ export default function AdminPage() {
                 {ordersError}
               </p>
             ) : null}
+            {selectedOrderId ? (
+              <p className="status" style={{ marginTop: 6 }}>
+                Selected for tracking: {selectedOrderId}
+              </p>
+            ) : null}
             {!isOrdersLoading && orders.length === 0 ? <p className="status">No orders yet.</p> : null}
 
             <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
@@ -1119,7 +1132,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div style={{ marginTop: 28 }} ref={trackingSectionRef}>
+          <div id="order-tracking" style={{ marginTop: 28 }} ref={trackingSectionRef}>
             <h2 className="section-title" style={{ fontSize: 28 }}>
               Order Tracking
             </h2>
