@@ -160,6 +160,7 @@ export default function AccountPage() {
                 {orders.map((o) => {
                   const id = o.id;
                   const canReturn = !o.return_status;
+                  const received = Array.isArray(o.tracking_received) ? o.tracking_received : [];
                   return (
                     <div key={id} className="cart-card" style={{ padding: 16 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -179,6 +180,42 @@ export default function AccountPage() {
                           <div className="summary-meta">
                             Return: {o.return_status ? o.return_status : "—"}
                           </div>
+
+                          <div className="summary-meta" style={{ marginTop: 8, fontWeight: 600 }}>
+                            Tracking
+                          </div>
+                          <div className="summary-meta">
+                            Estimated delivery: {o.estimated_delivery_at ? formatDate(o.estimated_delivery_at) : "—"}
+                          </div>
+                          <div className="summary-meta">
+                            Picked up from: {o.picked_up_from ? o.picked_up_from : "—"}
+                            {o.picked_up_at ? ` (${formatDate(o.picked_up_at)})` : ""}
+                          </div>
+                          <div className="summary-meta">
+                            Out for delivery: {o.out_for_delivery ? "Yes" : "No"}
+                            {o.out_for_delivery_at ? ` (${formatDate(o.out_for_delivery_at)})` : ""}
+                          </div>
+                          <div className="summary-meta">
+                            Delivered: {o.delivered_at ? formatDate(o.delivered_at) : "—"}
+                          </div>
+
+                          {received.length ? (
+                            <div className="summary-meta" style={{ marginTop: 6 }}>
+                              Received at:
+                              <ul style={{ margin: "6px 0 0 18px" }}>
+                                {received.slice(0, 5).map((u) => (
+                                  <li key={u.id}>
+                                    {u.location}
+                                    {u.created_at ? ` — ${formatDate(u.created_at)}` : ""}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : (
+                            <div className="summary-meta" style={{ marginTop: 6 }}>
+                              Received at: —
+                            </div>
+                          )}
                         </div>
 
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>

@@ -12,6 +12,23 @@ const initialForm = {
   description: "",
 };
 
+const toDateTimeLocalValue = (iso) => {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return "";
+    const pad = (n) => String(n).padStart(2, "0");
+    const yyyy = d.getFullYear();
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const hh = pad(d.getHours());
+    const mi = pad(d.getMinutes());
+    return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+  } catch {
+    return "";
+  }
+};
+
 export default function AdminPage() {
   const [form, setForm] = useState(initialForm);
   const [images, setImages] = useState([]);
@@ -39,6 +56,22 @@ export default function AdminPage() {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState(null);
+
+  const [orders, setOrders] = useState([]);
+  const [isOrdersLoading, setIsOrdersLoading] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState("");
+  const [trackingForm, setTrackingForm] = useState({
+    estimatedDeliveryAt: "",
+    pickedUpFrom: "",
+    pickedUpAt: "",
+    outForDelivery: "no",
+    outForDeliveryAt: "",
+    deliveredAt: "",
+  });
+  const [receivedLocation, setReceivedLocation] = useState("");
+  const [receivedAt, setReceivedAt] = useState("");
+  const [receivedNote, setReceivedNote] = useState("");
+  const [isTrackingBusy, setIsTrackingBusy] = useState(false);
 
   const productCount = useMemo(() => products.length, [products]);
 
@@ -85,6 +118,36 @@ export default function AdminPage() {
     }
   };
 
+  const loadOrders = async () => {
+    if (!admin) return;
+    setIsOrdersLoading(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+
+      const res = await apiFetch(`/admin/orders?limit=200`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      const list = Array.isArray(payload?.orders) ? payload.orders : [];
+      setOrders(list);
+      if (!selectedOrderId && list.length) {
+        setSelectedOrderId(String(list[0].id));
+      }
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: "error", message: e.message || "Failed to load orders" });
+    } finally {
+      setIsOrdersLoading(false);
+    }
+  };
+
   useEffect(() => {
     refreshAdmin();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -93,11 +156,140 @@ export default function AdminPage() {
   useEffect(() => {
     if (admin) {
       loadProducts();
+      loadOrders();
     } else {
       setProducts([]);
+      setOrders([]);
+      setSelectedOrderId("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [admin]);
+
+  useEffect(() => {
+    if (!selectedOrderId) return;
+    const o = orders.find((x) => String(x.id) === String(selectedOrderId));
+    if (!o) return;
+
+    setTrackingForm({
+      estimatedDeliveryAt: toDateTimeLocalValue(o.estimated_delivery_at),
+      pickedUpFrom: o.picked_up_from || "",
+      pickedUpAt: toDateTimeLocalValue(o.picked_up_at),
+      outForDelivery: o.out_for_delivery ? "yes" : "no",
+      outForDeliveryAt: toDateTimeLocalValue(o.out_for_delivery_at),
+      deliveredAt: toDateTimeLocalValue(o.delivered_at),
+    });
+
+    setReceivedLocation("");
+    setReceivedAt("");
+    setReceivedNote("");
+  }, [selectedOrderId, orders]);
+
+  const onTrackingChange = (e) => {
+    const { name, value } = e.target;
+    setTrackingForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const onSaveTracking = async () => {
+    setStatus({ type: "", message: "" });
+
+    if (!admin) {
+      setStatus({ type: "error", message: "Please login as admin first" });
+      return;
+    }
+    if (!selectedOrderId) {
+      setStatus({ type: "error", message: "Please select an order" });
+      return;
+    }
+
+    setIsTrackingBusy(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+
+      const res = await apiFetch(`/admin/orders/${encodeURIComponent(selectedOrderId)}/tracking`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          estimatedDeliveryAt: trackingForm.estimatedDeliveryAt || null,
+          pickedUpFrom: trackingForm.pickedUpFrom || null,
+          pickedUpAt: trackingForm.pickedUpAt || null,
+          outForDelivery: trackingForm.outForDelivery === "yes",
+          outForDeliveryAt: trackingForm.outForDeliveryAt || null,
+          deliveredAt: trackingForm.deliveredAt || null,
+        }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      setStatus({ type: "success", message: "Tracking updated" });
+      await loadOrders();
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: "error", message: e.message || "Tracking update failed" });
+    } finally {
+      setIsTrackingBusy(false);
+    }
+  };
+
+  const onAddReceived = async () => {
+    setStatus({ type: "", message: "" });
+
+    if (!admin) {
+      setStatus({ type: "error", message: "Please login as admin first" });
+      return;
+    }
+    if (!selectedOrderId) {
+      setStatus({ type: "error", message: "Please select an order" });
+      return;
+    }
+    if (!receivedLocation.trim()) {
+      setStatus({ type: "error", message: "Please enter received location" });
+      return;
+    }
+
+    setIsTrackingBusy(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+
+      const res = await apiFetch(`/admin/orders/${encodeURIComponent(selectedOrderId)}/tracking/received`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          location: receivedLocation.trim(),
+          receivedAt: receivedAt || null,
+          note: receivedNote.trim() || null,
+        }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      setStatus({ type: "success", message: "Received location added" });
+      setReceivedLocation("");
+      setReceivedAt("");
+      setReceivedNote("");
+      await loadOrders();
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: "error", message: e.message || "Failed to add received location" });
+    } finally {
+      setIsTrackingBusy(false);
+    }
+  };
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -732,6 +924,198 @@ export default function AdminPage() {
                   ) : null}
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 28 }}>
+            <h2 className="section-title" style={{ fontSize: 28 }}>
+              Order Tracking
+            </h2>
+            <p className="section-subtitle">
+              Manual entry: estimated delivery, pickup, received locations, out for delivery
+            </p>
+
+            <div className="auth-card" style={{ marginTop: 12 }}>
+              <div style={{ display: "grid", gap: 10 }}>
+                <label>
+                  Select Order*
+                  <select
+                    value={selectedOrderId}
+                    onChange={(e) => setSelectedOrderId(e.target.value)}
+                    style={{ width: "100%" }}
+                  >
+                    <option value="">-- Select --</option>
+                    {orders.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.id} · {o.product_name || "Order"} · {o.customer_name || ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <button
+                  className="secondary-btn"
+                  type="button"
+                  onClick={loadOrders}
+                  disabled={isOrdersLoading || isTrackingBusy}
+                >
+                  {isOrdersLoading ? "Loading…" : "Refresh Orders"}
+                </button>
+              </div>
+
+              {selectedOrderId ? (
+                <>
+                  <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                    <label>
+                      Estimated delivery (date & time)
+                      <input
+                        name="estimatedDeliveryAt"
+                        type="datetime-local"
+                        value={trackingForm.estimatedDeliveryAt}
+                        onChange={onTrackingChange}
+                        style={{ width: "100%" }}
+                      />
+                    </label>
+
+                    <label>
+                      Picked up from
+                      <input
+                        name="pickedUpFrom"
+                        type="text"
+                        placeholder="e.g., Delhi"
+                        value={trackingForm.pickedUpFrom}
+                        onChange={onTrackingChange}
+                        style={{ width: "100%" }}
+                      />
+                    </label>
+
+                    <label>
+                      Picked up at (date & time)
+                      <input
+                        name="pickedUpAt"
+                        type="datetime-local"
+                        value={trackingForm.pickedUpAt}
+                        onChange={onTrackingChange}
+                        style={{ width: "100%" }}
+                      />
+                    </label>
+
+                    <label>
+                      Out for delivery (Yes/No)
+                      <select
+                        name="outForDelivery"
+                        value={trackingForm.outForDelivery}
+                        onChange={onTrackingChange}
+                        style={{ width: "100%" }}
+                      >
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      Out for delivery at (date & time)
+                      <input
+                        name="outForDeliveryAt"
+                        type="datetime-local"
+                        value={trackingForm.outForDeliveryAt}
+                        onChange={onTrackingChange}
+                        style={{ width: "100%" }}
+                      />
+                    </label>
+
+                    <label>
+                      Delivered at (date & time)
+                      <input
+                        name="deliveredAt"
+                        type="datetime-local"
+                        value={trackingForm.deliveredAt}
+                        onChange={onTrackingChange}
+                        style={{ width: "100%" }}
+                      />
+                    </label>
+
+                    <button
+                      className="primary-btn"
+                      type="button"
+                      onClick={onSaveTracking}
+                      disabled={isTrackingBusy}
+                    >
+                      {isTrackingBusy ? "Saving…" : "Save Tracking"}
+                    </button>
+                  </div>
+
+                  <div style={{ marginTop: 16 }}>
+                    <div className="summary-title">Received at (multiple)</div>
+                    <div className="summary-meta">Add as many checkpoints as needed</div>
+
+                    <div style={{ display: "grid", gap: 12, marginTop: 10 }}>
+                      <label>
+                        Received location*
+                        <input
+                          type="text"
+                          placeholder="e.g., Gurgaon"
+                          value={receivedLocation}
+                          onChange={(e) => setReceivedLocation(e.target.value)}
+                          style={{ width: "100%" }}
+                        />
+                      </label>
+
+                      <label>
+                        Date & time (optional)
+                        <input
+                          type="datetime-local"
+                          value={receivedAt}
+                          onChange={(e) => setReceivedAt(e.target.value)}
+                          style={{ width: "100%" }}
+                        />
+                      </label>
+
+                      <label>
+                        Note (optional)
+                        <input
+                          type="text"
+                          value={receivedNote}
+                          onChange={(e) => setReceivedNote(e.target.value)}
+                          style={{ width: "100%" }}
+                        />
+                      </label>
+
+                      <button
+                        className="secondary-btn"
+                        type="button"
+                        onClick={onAddReceived}
+                        disabled={isTrackingBusy}
+                      >
+                        {isTrackingBusy ? "Adding…" : "Add Received Location"}
+                      </button>
+                    </div>
+
+                    <div style={{ marginTop: 12 }}>
+                      {(() => {
+                        const o = orders.find((x) => String(x.id) === String(selectedOrderId));
+                        const received = Array.isArray(o?.tracking_received) ? o.tracking_received : [];
+                        if (!received.length) return <p className="status">No received updates yet.</p>;
+                        return (
+                          <div className="status" style={{ display: "grid", gap: 6 }}>
+                            {received.slice(0, 10).map((u) => (
+                              <div key={u.id}>
+                                - {u.location}
+                                {u.created_at ? ` (${new Date(u.created_at).toLocaleString()})` : ""}
+                                {u.note ? ` · ${u.note}` : ""}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="status" style={{ marginTop: 12 }}>
+                  Select an order to update tracking.
+                </p>
+              )}
             </div>
           </div>
         </>
