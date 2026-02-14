@@ -12,6 +12,13 @@ const initialForm = {
   description: "",
 };
 
+const EMPTY_IMAGE_URLS = {
+  image1: "",
+  image2: "",
+  image3: "",
+  image4: "",
+};
+
 const toDateTimeLocalValue = (iso) => {
   if (!iso) return "";
   try {
@@ -50,6 +57,8 @@ export default function AdminPage() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(initialForm);
   const [editImages, setEditImages] = useState([]);
+  const [editImageUrls, setEditImageUrls] = useState(EMPTY_IMAGE_URLS);
+  const [editUndoUrls, setEditUndoUrls] = useState(EMPTY_IMAGE_URLS);
   const [isUpdatingId, setIsUpdatingId] = useState(null);
   const [editRemove, setEditRemove] = useState({
     image1: false,
@@ -509,6 +518,14 @@ export default function AdminPage() {
       description: p.description || "",
     });
     setEditImages([]);
+    const urls = {
+      image1: p.image1 || "",
+      image2: p.image2 || "",
+      image3: p.image3 || "",
+      image4: p.image4 || "",
+    };
+    setEditImageUrls(urls);
+    setEditUndoUrls(urls);
     setEditRemove({ image1: false, image2: false, image3: false, image4: false });
   };
 
@@ -516,11 +533,57 @@ export default function AdminPage() {
     setEditingId(null);
     setEditForm(initialForm);
     setEditImages([]);
+    setEditImageUrls(EMPTY_IMAGE_URLS);
+    setEditUndoUrls(EMPTY_IMAGE_URLS);
     setEditRemove({ image1: false, image2: false, image3: false, image4: false });
   };
 
   const onToggleRemoveImage = (slot) => {
-    setEditRemove((prev) => ({ ...prev, [slot]: !prev[slot] }));
+    setEditRemove((prev) => {
+      const nextRemoved = !prev[slot];
+
+      if (nextRemoved) {
+        setEditUndoUrls((u) => ({ ...u, [slot]: editImageUrls?.[slot] || u?.[slot] || "" }));
+        setEditImageUrls((urls) => ({ ...urls, [slot]: "" }));
+      } else {
+        setEditImageUrls((urls) => ({ ...urls, [slot]: editUndoUrls?.[slot] || urls?.[slot] || "" }));
+      }
+
+      return { ...prev, [slot]: nextRemoved };
+    });
+  };
+
+  const setEditImageUrl = (slot, value) => {
+    const next = String(value || "").trim();
+    setEditImageUrls((prev) => ({ ...prev, [slot]: next }));
+    if (next) {
+      setEditRemove((prev) => ({ ...prev, [slot]: false }));
+      setEditUndoUrls((prev) => ({ ...prev, [slot]: next }));
+    }
+  };
+
+  const swapImageSlots = (a, b) => {
+    setEditImageUrls((prev) => {
+      const next = { ...prev };
+      const t = next[a];
+      next[a] = next[b];
+      next[b] = t;
+      return next;
+    });
+    setEditRemove((prev) => {
+      const next = { ...prev };
+      const t = next[a];
+      next[a] = next[b];
+      next[b] = t;
+      return next;
+    });
+    setEditUndoUrls((prev) => {
+      const next = { ...prev };
+      const t = next[a];
+      next[a] = next[b];
+      next[b] = t;
+      return next;
+    });
   };
 
   const onEditChange = (e) => {
@@ -553,6 +616,12 @@ export default function AdminPage() {
       body.append("price_usd", editForm.price_usd);
       body.append("price", editForm.price_inr);
       body.append("description", editForm.description);
+
+      // Allow admin to add/reorder images by URL (even when no files are selected).
+      body.append("image1", editImageUrls.image1 || "");
+      body.append("image2", editImageUrls.image2 || "");
+      body.append("image3", editImageUrls.image3 || "");
+      body.append("image4", editImageUrls.image4 || "");
 
       if (editRemove.image1) body.append("removeImage1", "1");
       if (editRemove.image2) body.append("removeImage2", "1");
@@ -1027,30 +1096,67 @@ export default function AdminPage() {
                   {editingId === p.id ? (
                     <div className="admin-edit" aria-label="Edit product">
                       <div className="admin-edit-images" aria-label="Existing images">
-                        {["image1", "image2", "image3", "image4"].map((slot) => {
-                          const url = p?.[slot];
+                        {[
+                          { slot: "image1", label: "Image 1" },
+                          { slot: "image2", label: "Image 2" },
+                          { slot: "image3", label: "Image 3" },
+                          { slot: "image4", label: "Image 4" },
+                        ].map(({ slot, label }, idx, list) => {
+                          const url = editImageUrls?.[slot] || "";
                           const removed = !!editRemove?.[slot];
+                          const disableUrlTools = isUpdatingId === p.id || editImages.length > 0;
                           return (
-                            <div key={slot} className={removed ? "admin-edit-img removed" : "admin-edit-img"}>
-                              {url ? (
-                                <img src={url} alt="" />
-                              ) : (
-                                <div className="admin-edit-img-empty" />
-                              )}
-                              {url ? (
+                            <div key={slot} className="admin-edit-img-wrap">
+                              <div className={removed ? "admin-edit-img removed" : "admin-edit-img"}>
+                                {url ? <img src={url} alt="" /> : <div className="admin-edit-img-empty" />}
+                                {url || removed ? (
+                                  <button
+                                    type="button"
+                                    className="admin-img-btn"
+                                    onClick={() => onToggleRemoveImage(slot)}
+                                    disabled={isUpdatingId === p.id}
+                                  >
+                                    {removed ? "Undo" : "Remove"}
+                                  </button>
+                                ) : null}
+                              </div>
+
+                              <input
+                                className="admin-img-input"
+                                value={url}
+                                onChange={(e) => setEditImageUrl(slot, e.target.value)}
+                                placeholder={`${label} URL paste karo`}
+                                disabled={disableUrlTools}
+                              />
+
+                              <div className="admin-img-reorder" aria-label={`${label} reorder`}>
                                 <button
                                   type="button"
-                                  className="admin-img-btn"
-                                  onClick={() => onToggleRemoveImage(slot)}
-                                  disabled={isUpdatingId === p.id}
+                                  className="admin-img-mini-btn"
+                                  onClick={() => swapImageSlots(slot, list[idx - 1]?.slot)}
+                                  disabled={disableUrlTools || idx === 0}
                                 >
-                                  {removed ? "Undo" : "Remove"}
+                                  Up
                                 </button>
-                              ) : null}
+                                <button
+                                  type="button"
+                                  className="admin-img-mini-btn"
+                                  onClick={() => swapImageSlots(slot, list[idx + 1]?.slot)}
+                                  disabled={disableUrlTools || idx === list.length - 1}
+                                >
+                                  Down
+                                </button>
+                              </div>
                             </div>
                           );
                         })}
                       </div>
+
+                      {editImages.length ? (
+                        <div className="status" style={{ marginBottom: 12 }}>
+                          Note: Replace Images selected hai — URL add/reorder disabled (upload ke baad slots 1-4 replace ho jayenge).
+                        </div>
+                      ) : null}
 
                       <div className="admin-edit-grid">
                             <label>
