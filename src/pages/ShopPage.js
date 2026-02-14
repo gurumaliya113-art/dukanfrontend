@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useRegion } from "../regionContext";
 import { formatMoney, getProductUnitPrice } from "../pricing";
@@ -12,6 +12,7 @@ export default function ShopPage() {
   const [error, setError] = useState("");
   const { region } = useRegion();
   const location = useLocation();
+  const arrivalsRef = useRef(null);
 
   const sliderImages = useMemo(
     () => [
@@ -54,6 +55,28 @@ export default function ShopPage() {
         setError("Products load nahi ho rahe. Backend (5000) chal raha hai?");
       });
   }, [activeCategory]);
+
+  // Ensure category tiles always scroll to product list (even if hash scrolling is missed).
+  useEffect(() => {
+    if (location.hash !== "#arrivals") return;
+
+    const behavior = window?.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+      ? "auto"
+      : "smooth";
+
+    const scroll = () => {
+      try {
+        arrivalsRef.current?.scrollIntoView?.({ behavior, block: "start" });
+      } catch {
+        // ignore
+      }
+    };
+
+    // One immediate attempt + one delayed attempt (after render/data).
+    scroll();
+    const t = setTimeout(scroll, 50);
+    return () => clearTimeout(t);
+  }, [location.hash, activeCategory, products.length]);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.IntersectionObserver !== "function") {
@@ -114,7 +137,7 @@ export default function ShopPage() {
         mix
       />
 
-      <section className="section">
+      <section className="section" id="arrivals" ref={arrivalsRef}>
         <div className="container">
           <div className="section-head">
             <h2 className="section-title">{getCategoryLabel(activeCategory)}</h2>
