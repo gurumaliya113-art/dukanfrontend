@@ -108,6 +108,16 @@ export default function ProductPage() {
     unitMrp?.currency === unit?.currency &&
     Number(unitMrp.amount) > Number(unit.amount || 0);
 
+  let offPercent = 0;
+  if (showMrp) {
+    const mrp = Number(unitMrp.amount || 0);
+    const price = Number(unit.amount || 0);
+    if (mrp > 0 && price >= 0 && mrp > price) {
+      const pct = Math.round(((mrp - price) / mrp) * 100);
+      offPercent = Number.isFinite(pct) && pct > 0 ? Math.min(99, pct) : 0;
+    }
+  }
+
   return (
     <div className="detail">
       <div className="container">
@@ -141,7 +151,7 @@ export default function ProductPage() {
               {showMrp ? (
                 <>
                   <span className="detail-mrp">{formatMoney(unitMrp.amount, unitMrp.currency)}</span>
-                  <span className="detail-off">50% OFF</span>
+                  {offPercent ? <span className="detail-off">{offPercent}% OFF</span> : null}
                 </>
               ) : null}
             </div>

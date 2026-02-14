@@ -418,21 +418,6 @@ export default function AdminPage() {
 
   const onChange = (e) => {
     const { name, value } = e.target;
-
-    if (name === "mrp_inr") {
-      const n = Number(value);
-      const half = !Number.isNaN(n) && n > 0 ? String(Math.round(n / 2)) : "";
-      setForm((prev) => ({ ...prev, mrp_inr: value, price_inr: half }));
-      return;
-    }
-
-    if (name === "mrp_usd") {
-      const n = Number(value);
-      const half = !Number.isNaN(n) && n > 0 ? String(Math.round(n / 2)) : "";
-      setForm((prev) => ({ ...prev, mrp_usd: value, price_usd: half }));
-      return;
-    }
-
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -445,13 +430,8 @@ export default function AdminPage() {
       return;
     }
 
-    if (!form.name.trim() || form.mrp_inr === "" || form.mrp_usd === "") {
-      setStatus({ type: "error", message: "Name + MRP INR + MRP USD required hai" });
-      return;
-    }
-
-    if (form.price_inr === "" || form.price_usd === "") {
-      setStatus({ type: "error", message: "MRP invalid hai (Price auto-calc nahi hua)." });
+    if (!form.name.trim() || form.price_inr === "" || form.price_usd === "") {
+      setStatus({ type: "error", message: "Name + Price INR + Price USD required hai" });
       return;
     }
 
@@ -614,21 +594,6 @@ export default function AdminPage() {
 
   const onEditChange = (e) => {
     const { name, value } = e.target;
-
-    if (name === "mrp_inr") {
-      const n = Number(value);
-      const half = !Number.isNaN(n) && n > 0 ? String(Math.round(n / 2)) : "";
-      setEditForm((prev) => ({ ...prev, mrp_inr: value, price_inr: half || prev.price_inr }));
-      return;
-    }
-
-    if (name === "mrp_usd") {
-      const n = Number(value);
-      const half = !Number.isNaN(n) && n > 0 ? String(Math.round(n / 2)) : "";
-      setEditForm((prev) => ({ ...prev, mrp_usd: value, price_usd: half || prev.price_usd }));
-      return;
-    }
-
     setEditForm((prev) => ({ ...prev, [name]: value }));
   };
 
@@ -1010,7 +975,7 @@ export default function AdminPage() {
             </label>
 
             <label>
-              MRP INR (India)*
+              MRP INR (India) (optional)
               <input
                 name="mrp_inr"
                 value={form.mrp_inr}
@@ -1022,7 +987,7 @@ export default function AdminPage() {
             </label>
 
             <label>
-              MRP USD (USA)*
+              MRP USD (USA) (optional)
               <input
                 name="mrp_usd"
                 value={form.mrp_usd}
@@ -1034,7 +999,7 @@ export default function AdminPage() {
             </label>
 
             <div className="status">
-              MRP dalte hi Price auto 50% OFF set ho jayega.
+              Customer ko discount % automatically show hoga (MRP vs Price).
             </div>
 
             <label>
@@ -1044,7 +1009,6 @@ export default function AdminPage() {
                 value={form.price_inr}
                 onChange={onChange}
                 type="number"
-                disabled={!!String(form.mrp_inr || "").trim()}
                 style={{ width: "100%" }}
               />
             </label>
@@ -1056,7 +1020,6 @@ export default function AdminPage() {
                 value={form.price_usd}
                 onChange={onChange}
                 type="number"
-                disabled={!!String(form.mrp_usd || "").trim()}
                 style={{ width: "100%" }}
               />
             </label>
@@ -1264,7 +1227,7 @@ export default function AdminPage() {
                             value={editForm.price_inr}
                             onChange={onEditChange}
                             type="number"
-                            disabled={!!String(editForm.mrp_inr || "").trim()}
+                            disabled={isUpdatingId === p.id}
                           />
                         </label>
 
@@ -1275,7 +1238,7 @@ export default function AdminPage() {
                             value={editForm.price_usd}
                             onChange={onEditChange}
                             type="number"
-                            disabled={!!String(editForm.mrp_usd || "").trim()}
+                            disabled={isUpdatingId === p.id}
                           />
                         </label>
 
