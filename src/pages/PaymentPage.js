@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useCart } from "../cartContext";
 import { useRegion } from "../regionContext";
 import { formatMoney, getCartItemUnitPrice, getProductUnitPrice } from "../pricing";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
@@ -8,7 +9,9 @@ import { supabase } from "../supabaseClient";
 
 export default function PaymentPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [params] = useSearchParams();
+  const cart = useCart();
 
   const fromCart = params.get("fromCart") === "1";
 
@@ -47,6 +50,9 @@ export default function PaymentPage() {
   const [qrSrc, setQrSrc] = useState("/qr.png");
   const [paypalClientId, setPaypalClientId] = useState("");
   const [paypalError, setPaypalError] = useState("");
+
+  const [codSuccessOpen, setCodSuccessOpen] = useState(false);
+  const [codSuccessIds, setCodSuccessIds] = useState([]);
 
   const canUsePayPal = region === "US";
 
@@ -250,7 +256,9 @@ export default function PaymentPage() {
           currency: unit.currency,
           unitPrice: unit.amount,
         });
-        setStatus(`COD order placed. Order ID: ${placed.id}`);
+        setCodSuccessIds(placed?.id ? [placed.id] : []);
+        setCodSuccessOpen(true);
+        window.setTimeout(() => navigate("/account", { replace: true }), 3000);
         return;
       }
 
@@ -278,7 +286,10 @@ export default function PaymentPage() {
       }
 
       const ids = results.map((r) => r.id).filter(Boolean);
-      setStatus(`COD orders placed: ${ids.join(", ")}`);
+      if (cartMode) cart.clear();
+      setCodSuccessIds(ids);
+      setCodSuccessOpen(true);
+      window.setTimeout(() => navigate("/account", { replace: true }), 3000);
     } catch (e) {
       console.error(e);
       setStatus(e.message || "Failed to place COD order");
@@ -314,6 +325,30 @@ export default function PaymentPage() {
 
   return (
     <div className="section">
+      {codSuccessOpen ? (
+        <div className="success-overlay" role="dialog" aria-modal="true" aria-label="Order placed">
+          <div className="success-modal">
+            <div className="success-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true">
+                <path
+                  d="M20 6 9 17l-5-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <div className="success-title">Your order has been placed</div>
+            <div className="success-subtitle">Redirecting to My Orders…</div>
+            {codSuccessIds.length ? (
+              <div className="success-meta">Order ID{codSuccessIds.length > 1 ? "s" : ""}: {codSuccessIds.join(", ")}</div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
       <div className="container">
         <h1 className="section-title">Choose Payment Option</h1>
         <p className="section-subtitle">Scan QR or place COD order.</p>
