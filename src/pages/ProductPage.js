@@ -6,7 +6,7 @@ import { formatMoney, getProductUnitMrp, getProductUnitPrice } from "../pricing"
 import { apiFetch } from "../api";
 import ReviewsSlider from "../components/ReviewsSlider";
 
-const SIZES = ["XS", "S", "M", "L", "XL"]; 
+const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 
 export default function ProductPage() {
   const { id } = useParams();
@@ -103,6 +103,8 @@ export default function ProductPage() {
   const mainImage = activeImage || images[0] || "https://via.placeholder.com/900";
   const unit = getProductUnitPrice(product, region);
   const unitMrp = getProductUnitMrp(product, region);
+
+  const sizes = Array.isArray(product?.sizes) && product.sizes.length ? product.sizes : DEFAULT_SIZES;
   const showMrp =
     Number(unitMrp?.amount || 0) > 0 &&
     unitMrp?.currency === unit?.currency &&
@@ -161,7 +163,7 @@ export default function ProductPage() {
 
             <div className="label">Size</div>
             <div className="sizes">
-              {SIZES.map((s) => (
+              {sizes.map((s) => (
                 <button
                   key={s}
                   type="button"

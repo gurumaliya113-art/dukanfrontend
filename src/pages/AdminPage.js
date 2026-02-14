@@ -4,6 +4,49 @@ import { supabase } from "../supabaseClient";
 import { CATEGORIES, normalizeCategory } from "../categories";
 import { apiFetch, getApiBase } from "../api";
 
+const PRODUCT_SIZE_OPTIONS = [
+  "0-1 year",
+  "1-2 year",
+  "2-4 year",
+  "S",
+  "M",
+  "L",
+  "XL",
+  "XXL",
+  "XXXL",
+];
+
+const normalizeSizes = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // ignore
+    }
+    return trimmed
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
+const toggleSize = (list, size) => {
+  const allowed = new Set(PRODUCT_SIZE_OPTIONS);
+  const set = new Set(Array.isArray(list) ? list.filter((s) => allowed.has(s)) : []);
+  if (set.has(size)) set.delete(size);
+  else set.add(size);
+  const weight = new Map(PRODUCT_SIZE_OPTIONS.map((s, i) => [s, i]));
+  return [...set].sort((a, b) => (weight.get(a) ?? 999) - (weight.get(b) ?? 999));
+};
+
 const initialForm = {
   name: "",
   category: "new",
@@ -12,6 +55,7 @@ const initialForm = {
   price_inr: "",
   price_usd: "",
   description: "",
+  sizes: [],
 };
 
 const EMPTY_IMAGE_URLS = {
@@ -449,6 +493,7 @@ export default function AdminPage() {
       body.append("price_usd", form.price_usd);
       body.append("price", form.price_inr);
       body.append("description", form.description);
+      body.append("sizes", JSON.stringify(form.sizes || []));
       images.slice(0, 4).forEach((file) => body.append("images", file));
 
       const res = await apiFetch("/products", {
@@ -522,6 +567,7 @@ export default function AdminPage() {
       price_inr: p.price_inr ?? p.price ?? "",
       price_usd: p.price_usd ?? "",
       description: p.description || "",
+      sizes: normalizeSizes(p.sizes),
     });
     setEditImages([]);
     const urls = {
@@ -624,6 +670,7 @@ export default function AdminPage() {
       body.append("price_usd", editForm.price_usd);
       body.append("price", editForm.price_inr);
       body.append("description", editForm.description);
+      body.append("sizes", JSON.stringify(editForm.sizes || []));
 
       // Allow admin to add/reorder images by URL (even when no files are selected).
       body.append("image1", editImageUrls.image1 || "");
@@ -974,6 +1021,22 @@ export default function AdminPage() {
               />
             </label>
 
+            <div>
+              <div className="label">Available Sizes</div>
+              <div className="sizes">
+                {PRODUCT_SIZE_OPTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={form.sizes?.includes(s) ? "size-btn active" : "size-btn"}
+                    onClick={() => setForm((prev) => ({ ...prev, sizes: toggleSize(prev.sizes, s) }))}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <label>
               MRP INR (India) (optional)
               <input
@@ -1193,6 +1256,28 @@ export default function AdminPage() {
                           Note: Replace Images selected hai — URL add/reorder disabled (upload ke baad slots 1-4 replace ho jayenge).
                         </div>
                       ) : null}
+
+                      <div style={{ marginBottom: 12 }}>
+                        <div className="label">Available Sizes</div>
+                        <div className="sizes">
+                          {PRODUCT_SIZE_OPTIONS.map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              className={editForm.sizes?.includes(s) ? "size-btn active" : "size-btn"}
+                              onClick={() =>
+                                setEditForm((prev) => ({
+                                  ...prev,
+                                  sizes: toggleSize(prev?.sizes, s),
+                                }))
+                              }
+                              disabled={isUpdatingId === p.id}
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
 
                       <div className="admin-edit-grid">
                             <label>
