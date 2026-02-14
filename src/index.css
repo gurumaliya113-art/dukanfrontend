@@ -93,6 +93,59 @@ p {
   gap: 10px;
 }
 
+.promo-marquee {
+  width: 100%;
+  overflow: hidden;
+}
+
+.promo-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  animation: promoMarquee 18s linear infinite;
+}
+
+.promo-content {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  gap: 10px;
+  padding-right: 34px;
+}
+
+.promo-item {
+  white-space: nowrap;
+}
+
+.promo-sep {
+  opacity: 0.9;
+}
+
+@keyframes promoMarquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .promo-marquee {
+    overflow: visible;
+  }
+
+  .promo-track {
+    animation: none;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .promo-content:nth-child(2) {
+    display: none;
+  }
+}
+
 .promo-link {
   color: inherit;
   text-decoration: underline;

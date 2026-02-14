@@ -31,7 +31,25 @@ export default function Navbar() {
     <header className={scrolled ? "nav scrolled" : "nav"}>
       <div className="promo-bar" role="region" aria-label="Announcement">
         <div className="container promo-inner">
-          <span>Free Shipping All Over World • 7 day Return Window All Over World</span>
+          <div
+            className="promo-marquee"
+            aria-label="Free Shipping All Over World. 7 day Return Window All Over World."
+          >
+            <div className="promo-track" aria-hidden="true">
+              <div className="promo-content">
+                <span className="promo-item">Free Shipping All Over World</span>
+                <span className="promo-sep">•</span>
+                <span className="promo-item">7 day Return Window All Over World</span>
+                <span className="promo-sep">•</span>
+              </div>
+              <div className="promo-content">
+                <span className="promo-item">Free Shipping All Over World</span>
+                <span className="promo-sep">•</span>
+                <span className="promo-item">7 day Return Window All Over World</span>
+                <span className="promo-sep">•</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
