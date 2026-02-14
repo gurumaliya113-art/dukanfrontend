@@ -207,6 +207,7 @@ export default function AccountPage() {
                   const id = o.id;
                   const canReturn = !o.return_status;
                   const received = Array.isArray(o.tracking_received) ? o.tracking_received : [];
+                  const isCod = String(o.payment_method || "").trim().toUpperCase() === "COD";
 
                   const statusNorm = String(o.status || "").trim().toLowerCase();
                   const confirmedDone =
@@ -287,6 +288,15 @@ export default function AccountPage() {
                         </div>
 
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                          {isCod ? (
+                            <button
+                              className="primary-btn"
+                              type="button"
+                              onClick={() => navigate(`/payment?payOrderId=${encodeURIComponent(String(id))}`)}
+                            >
+                              Pay Now (10% OFF)
+                            </button>
+                          ) : null}
                           <button
                             className={canReturn ? "secondary-btn" : "secondary-btn"}
                             type="button"
