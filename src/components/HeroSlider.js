@@ -36,12 +36,6 @@ export default function HeroSlider({ images, intervalMs = 3800 }) {
 
   if (slides.length === 0) return null;
 
-  const activeSlide = slides[Math.min(index, slides.length - 1)];
-  const overlayKicker = activeSlide?.kicker || "";
-  const overlayTitle = activeSlide?.title || "";
-  const overlaySubtitle = activeSlide?.subtitle || "";
-  const hasOverlay = Boolean(overlayKicker || overlayTitle || overlaySubtitle);
-
   return (
     <div className="hero-slider" aria-label="Featured images">
       {slides.length > 1 ? (
@@ -82,19 +76,6 @@ export default function HeroSlider({ images, intervalMs = 3800 }) {
             </svg>
           </button>
         </>
-      ) : null}
-
-      {hasOverlay ? (
-        <div className="hero-overlay" key={`overlay-${index}`} aria-hidden="true">
-          <div className="hero-overlay-scrim" />
-          <div className="hero-overlay-inner">
-            {overlayKicker ? <div className="hero-kicker hero-overlay-kicker">{overlayKicker}</div> : null}
-            {overlayTitle ? <div className="hero-title hero-overlay-title">{overlayTitle}</div> : null}
-            {overlaySubtitle ? (
-              <div className="hero-overlay-subtitle">{overlaySubtitle}</div>
-            ) : null}
-          </div>
-        </div>
       ) : null}
 
       <div

@@ -16,24 +16,9 @@ export default function ShopPage() {
 
   const sliderImages = useMemo(
     () => [
-      {
-        src: "/slider/slide-1.jpg",
-        alt: "Featured collection",
-        kicker: "FIRST ON ZUBILO",
-        title: "FEATURED",
-      },
-      {
-        src: "/slider/slide-2.jpg",
-        alt: "New arrivals",
-        kicker: "FIRST ON ZUBILO",
-        title: "NEW ARRIVALS",
-      },
-      {
-        src: "/slider/slide-3.jpg",
-        alt: "Seasonal picks",
-        kicker: "FIRST ON ZUBILO",
-        title: "SEASONAL PICKS",
-      },
+      { src: "/slider/slide-1.jpg", alt: "Featured collection" },
+      { src: "/slider/slide-2.jpg", alt: "New arrivals" },
+      { src: "/slider/slide-3.jpg", alt: "Seasonal picks" },
     ],
     []
   );
