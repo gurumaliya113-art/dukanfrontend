@@ -508,7 +508,8 @@ export default function AdminPage() {
         throw new Error(message);
       }
 
-      setStatus({ type: "success", message: `Added: ${data.name}` });
+      const warning = data?.warning ? `\n${data.warning}` : "";
+      setStatus({ type: "success", message: `Added: ${data.name}${warning}` });
       setForm(initialForm);
       setImages([]);
       loadProducts();
@@ -698,7 +699,8 @@ export default function AdminPage() {
       }
 
       setProducts((prev) => prev.map((p) => (p.id === productId ? data : p)));
-      setStatus({ type: "success", message: `Updated: ${data.name}` });
+      const warning = data?.warning ? `\n${data.warning}` : "";
+      setStatus({ type: "success", message: `Updated: ${data.name}${warning}` });
       onCancelEdit();
     } catch (e) {
       console.error(e);
@@ -1146,6 +1148,9 @@ export default function AdminPage() {
                       <div className="summary-meta">
                         INR: ₹{p.price_inr ?? p.price}
                         {p.price_usd !== undefined && p.price_usd !== null && p.price_usd !== "" ? ` · USA: $${p.price_usd}` : ""}
+                      </div>
+                      <div className="summary-meta">
+                        Sizes: {Array.isArray(p.sizes) && p.sizes.length ? p.sizes.join(", ") : "—"}
                       </div>
                       <div className="summary-meta">ID: {p.id}</div>
                     </div>
