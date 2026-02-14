@@ -181,6 +181,11 @@ p {
   color: rgba(250, 250, 250, 0.98);
 }
 
+/* Home top: yellow brand like requested (logo text only). */
+.nav.home-top .brand {
+  color: #fbbf24;
+}
+
 .nav.home-top .nav-link.active {
   border-bottom-color: rgba(250, 250, 250, 0.62);
 }
@@ -642,6 +647,16 @@ p {
   position: relative;
 }
 
+.hero-blackout {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 1);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+  animation: heroBlackout 900ms ease both;
+}
+
 .hero-arrow {
   position: absolute;
   top: 50%;
@@ -691,8 +706,40 @@ p {
   width: 100%;
   height: clamp(220px, 38vw, 440px);
   object-fit: cover;
+  transform-origin: 50% 50%;
   user-select: none;
   -webkit-user-drag: none;
+}
+
+.hero-slide-img-anim {
+  animation: heroZoom 1300ms ease both;
+}
+
+@keyframes heroBlackout {
+  0% {
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.9;
+  }
+  55% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes heroZoom {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* Mobile: make the hero image full-screen and edge-to-edge. */
@@ -732,6 +779,15 @@ p {
 @media (prefers-reduced-motion: reduce) {
   .hero-slider-track {
     transition: none;
+  }
+
+  .hero-blackout {
+    display: none;
+    animation: none;
+  }
+
+  .hero-slide-img-anim {
+    animation: none;
   }
 }
 
