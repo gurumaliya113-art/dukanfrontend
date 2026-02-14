@@ -16,9 +16,24 @@ export default function ShopPage() {
 
   const sliderImages = useMemo(
     () => [
-      { src: "/slider/slide-1.jpg", alt: "Featured collection" },
-      { src: "/slider/slide-2.jpg", alt: "New arrivals" },
-      { src: "/slider/slide-3.jpg", alt: "Seasonal picks" },
+      {
+        src: "/slider/slide-1.jpg",
+        alt: "Featured collection",
+        kicker: "HANDCRAFT WITH LOVE",
+        headline: "FLAT 949",
+      },
+      {
+        src: "/slider/slide-2.jpg",
+        alt: "New arrivals",
+        kicker: "ONLINE EXCLUSIVE SALE",
+        headline: "UPTO 60 % OFF",
+      },
+      {
+        src: "/slider/slide-3.jpg",
+        alt: "Seasonal picks",
+        kicker: "KIDS WINTER COLLECTION IS LIVE",
+        headline: "CHECK OUT NOW",
+      },
     ],
     []
   );

@@ -10,6 +10,7 @@ export default function HeroSlider({ images, intervalMs = 3800 }) {
   const [index, setIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [animNonce, setAnimNonce] = useState(0);
+  const [textOut, setTextOut] = useState(false);
   const timeoutsRef = useRef([]);
 
   const clearTransitionTimeouts = useCallback(() => {
@@ -26,17 +27,27 @@ export default function HeroSlider({ images, intervalMs = 3800 }) {
 
     if (prefersReducedMotion()) {
       setIsTransitioning(false);
+      setTextOut(false);
       setIndex(next);
       return;
     }
 
     setIsTransitioning(true);
+    setTextOut(true);
     // Swap the image while the blackout is near-opaque.
     timeoutsRef.current.push(
       window.setTimeout(() => {
         setIndex(next);
       }, 180)
     );
+
+    // Bring new text in shortly after the image swap.
+    timeoutsRef.current.push(
+      window.setTimeout(() => {
+        setTextOut(false);
+      }, 240)
+    );
+
     // End transition after the blackout fades out.
     timeoutsRef.current.push(
       window.setTimeout(() => {
@@ -79,6 +90,9 @@ export default function HeroSlider({ images, intervalMs = 3800 }) {
   if (slides.length === 0) return null;
 
   const active = slides[Math.min(index, slides.length - 1)];
+  const kicker = active?.kicker || "";
+  const headline = active?.headline || "";
+  const hasText = Boolean(kicker || headline);
 
   return (
     <div className="hero-slider" aria-label="Featured images">
@@ -128,6 +142,17 @@ export default function HeroSlider({ images, intervalMs = 3800 }) {
           key={`blackout-${animNonce}`}
           aria-hidden="true"
         />
+      ) : null}
+
+      {hasText ? (
+        <div
+          className={textOut ? "hero-text hero-text-out" : "hero-text"}
+          key={`text-${index}-${animNonce}`}
+          aria-hidden="true"
+        >
+          {kicker ? <div className="hero-text-kicker">{kicker}</div> : null}
+          {headline ? <div className="hero-text-headline">{headline}</div> : null}
+        </div>
       ) : null}
 
       <div className="hero-slide" key={`slide-${index}`}>
