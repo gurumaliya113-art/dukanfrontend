@@ -3,6 +3,20 @@ import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { CATEGORIES, normalizeCategory } from "../categories";
 import { apiFetch, getApiBase } from "../api";
+import {
+  AlertTriangle,
+  Boxes,
+  ChevronDown,
+  DollarSign,
+  Download,
+  LayoutDashboard,
+  MapPin,
+  MessageSquareWarning,
+  Package,
+  Search,
+  ShoppingCart,
+  TrendingUp,
+} from "lucide-react";
 
 const PRODUCT_SIZE_OPTIONS = [
   "0-1 year",
@@ -16,28 +30,6 @@ const PRODUCT_SIZE_OPTIONS = [
   "XXXL",
 ];
 
-const normalizeSizes = (value) => {
-  if (!value) return [];
-  if (Array.isArray(value)) return value;
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return [];
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {
-      // ignore
-    }
-    return trimmed
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-
-  return [];
-};
-
 const toggleSize = (list, size) => {
   const allowed = new Set(PRODUCT_SIZE_OPTIONS);
   const set = new Set(Array.isArray(list) ? list.filter((s) => allowed.has(s)) : []);
@@ -50,19 +42,15 @@ const toggleSize = (list, size) => {
 const initialForm = {
   name: "",
   category: "new",
+  sku: "",
+  barcode: "",
+  quantity: "",
   mrp_inr: "",
   mrp_usd: "",
   price_inr: "",
   price_usd: "",
   description: "",
   sizes: [],
-};
-
-const EMPTY_IMAGE_URLS = {
-  image1: "",
-  image2: "",
-  image3: "",
-  image4: "",
 };
 
 const toDateTimeLocalValue = (iso) => {
@@ -100,19 +88,6 @@ export default function AdminPage() {
   const [status, setStatus] = useState({ type: "", message: "" });
   const [isSaving, setIsSaving] = useState(false);
 
-  const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState(initialForm);
-  const [editImages, setEditImages] = useState([]);
-  const [editImageUrls, setEditImageUrls] = useState(EMPTY_IMAGE_URLS);
-  const [editUndoUrls, setEditUndoUrls] = useState(EMPTY_IMAGE_URLS);
-  const [isUpdatingId, setIsUpdatingId] = useState(null);
-  const [editRemove, setEditRemove] = useState({
-    image1: false,
-    image2: false,
-    image3: false,
-    image4: false,
-  });
-
   const [authMode, setAuthMode] = useState("login"); // login | create
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -123,6 +98,8 @@ export default function AdminPage() {
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeletingId, setIsDeletingId] = useState(null);
+  const [inventoryEdits, setInventoryEdits] = useState({});
+  const [inventorySavingId, setInventorySavingId] = useState(null);
 
   const [orders, setOrders] = useState([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
@@ -142,8 +119,6 @@ export default function AdminPage() {
   const [receivedNote, setReceivedNote] = useState("");
   const [isTrackingBusy, setIsTrackingBusy] = useState(false);
   const [trackingDirty, setTrackingDirty] = useState(false);
-
-  const productCount = useMemo(() => products.length, [products]);
 
   const orderStats = useMemo(() => {
     const byStatus = {
@@ -184,19 +159,71 @@ export default function AdminPage() {
     };
   }, [orders]);
 
-  const [activePanel, setActivePanel] = useState("dashboard");
-  const [navOpen, setNavOpen] = useState({ orders: true, products: true });
+  const [activePage, setActivePage] = useState("dashboard");
+  const [paymentsOpen, setPaymentsOpen] = useState(false);
+  const [paymentsRegion, setPaymentsRegion] = useState("IN"); // IN | USA
+  const [ordersTab, setOrdersTab] = useState("Pending");
 
-  const openPanel = (panel) => {
-    setActivePanel(panel);
-    setTimeout(() => {
-      try {
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } catch {
-        // ignore
-      }
-    }, 0);
+  const goto = (page) => {
+    setActivePage(page);
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      // ignore
+    }
   };
+
+  const statusPillClass = (status) => {
+    const s = String(status || "").trim().toLowerCase();
+    if (s === "delivered" || s === "completed") return "z-badge-pill z-pill-green";
+    if (s === "shipped" || s === "in progress" || s === "processing") return "z-badge-pill z-pill-blue";
+    if (s === "pending") return "z-badge-pill z-pill-yellow";
+    if (s === "confirmed") return "z-badge-pill z-pill-purple";
+    if (s === "cancelled" || s === "failed" || s === "rejected") return "z-badge-pill z-pill-red";
+    return "z-badge-pill z-pill-purple";
+  };
+
+  const filteredOrdersForTab = useMemo(() => {
+    const map = {
+      "On Hold": "on hold",
+      Pending: "pending",
+      "Ready to Ship": "confirmed",
+      Shipped: "shipped",
+      Cancelled: "cancelled",
+    };
+    const target = map[ordersTab] || "pending";
+    return (orders || []).filter((o) => String(o?.status || "").trim().toLowerCase() === target);
+  }, [orders, ordersTab]);
+
+  const outOfStockCount = useMemo(() => {
+    return (products || []).filter((p) => Number(p?.quantity) === 0).length;
+  }, [products]);
+
+  const lowStockCount = useMemo(() => {
+    const threshold = 5;
+    return (products || []).filter((p) => {
+      const q = Number(p?.quantity);
+      return Number.isFinite(q) && q > 0 && q <= threshold;
+    }).length;
+  }, [products]);
+
+  const ordersTabCounts = useMemo(() => {
+    const mapping = {
+      "On Hold": "on hold",
+      Pending: "pending",
+      "Ready to Ship": "confirmed",
+      Shipped: "shipped",
+      Cancelled: "cancelled",
+    };
+    const result = {};
+    Object.keys(mapping).forEach((tab) => {
+      const target = mapping[tab];
+      result[tab] = (orders || []).filter(
+        (o) => String(o?.status || "").trim().toLowerCase() === target
+      ).length;
+    });
+    return result;
+  }, [orders]);
 
   const getAccessToken = async () => {
     const { data } = await supabase.auth.getSession();
@@ -350,8 +377,7 @@ export default function AdminPage() {
     const next = String(orderId || "");
     setTrackingDirty(false);
     setSelectedOrderId(next);
-    setNavOpen((prev) => ({ ...prev, orders: true }));
-    setActivePanel("tracking");
+    goto("tracking");
 
     try {
       // Native anchor navigation as a fallback.
@@ -583,6 +609,9 @@ export default function AdminPage() {
       const body = new FormData();
       body.append("category", normalizeCategory(form.category));
       body.append("name", form.name);
+      if (form.sku !== undefined) body.append("sku", form.sku);
+      if (form.barcode !== undefined) body.append("barcode", form.barcode);
+      if (form.quantity !== undefined) body.append("quantity", form.quantity);
       body.append("mrp_inr", form.mrp_inr);
       body.append("mrp_usd", form.mrp_usd);
       body.append("price_inr", form.price_inr);
@@ -653,139 +682,42 @@ export default function AdminPage() {
     }
   };
 
-  const onStartEdit = (p) => {
+  const onSaveInventoryQuantity = async (productId) => {
     setStatus({ type: "", message: "" });
-    setEditingId(p.id);
-    setEditForm({
-      name: p.name || "",
-      category: normalizeCategory(p.category),
-      mrp_inr: p.mrp_inr ?? "",
-      mrp_usd: p.mrp_usd ?? "",
-      price_inr: p.price_inr ?? p.price ?? "",
-      price_usd: p.price_usd ?? "",
-      description: p.description || "",
-      sizes: normalizeSizes(p.sizes),
-    });
-    setEditImages([]);
-    const urls = {
-      image1: p.image1 || "",
-      image2: p.image2 || "",
-      image3: p.image3 || "",
-      image4: p.image4 || "",
-    };
-    setEditImageUrls(urls);
-    setEditUndoUrls(urls);
-    setEditRemove({ image1: false, image2: false, image3: false, image4: false });
-  };
-
-  const onCancelEdit = () => {
-    setEditingId(null);
-    setEditForm(initialForm);
-    setEditImages([]);
-    setEditImageUrls(EMPTY_IMAGE_URLS);
-    setEditUndoUrls(EMPTY_IMAGE_URLS);
-    setEditRemove({ image1: false, image2: false, image3: false, image4: false });
-  };
-
-  const onToggleRemoveImage = (slot) => {
-    setEditRemove((prev) => {
-      const nextRemoved = !prev[slot];
-
-      if (nextRemoved) {
-        setEditUndoUrls((u) => ({ ...u, [slot]: editImageUrls?.[slot] || u?.[slot] || "" }));
-        setEditImageUrls((urls) => ({ ...urls, [slot]: "" }));
-      } else {
-        setEditImageUrls((urls) => ({ ...urls, [slot]: editUndoUrls?.[slot] || urls?.[slot] || "" }));
-      }
-
-      return { ...prev, [slot]: nextRemoved };
-    });
-  };
-
-  const setEditImageUrl = (slot, value) => {
-    const next = String(value || "").trim();
-    setEditImageUrls((prev) => ({ ...prev, [slot]: next }));
-    if (next) {
-      setEditRemove((prev) => ({ ...prev, [slot]: false }));
-      setEditUndoUrls((prev) => ({ ...prev, [slot]: next }));
-    }
-  };
-
-  const swapImageSlots = (a, b) => {
-    setEditImageUrls((prev) => {
-      const next = { ...prev };
-      const t = next[a];
-      next[a] = next[b];
-      next[b] = t;
-      return next;
-    });
-    setEditRemove((prev) => {
-      const next = { ...prev };
-      const t = next[a];
-      next[a] = next[b];
-      next[b] = t;
-      return next;
-    });
-    setEditUndoUrls((prev) => {
-      const next = { ...prev };
-      const t = next[a];
-      next[a] = next[b];
-      next[b] = t;
-      return next;
-    });
-  };
-
-  const onEditChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const onUpdate = async (productId) => {
-    setStatus({ type: "", message: "" });
-
     if (!admin) {
       setStatus({ type: "error", message: "Please login as admin first" });
       return;
     }
 
-    if (!editForm.name.trim() || editForm.price_inr === "" || editForm.price_usd === "") {
-      setStatus({ type: "error", message: "Name + Price INR + Price USD required hai" });
-      return;
+    const draft = inventoryEdits?.[productId];
+    const raw = draft?.quantity;
+
+    if (raw === undefined) return;
+
+    const nextQuantity = raw === "" || raw === null ? null : Number(raw);
+    if (nextQuantity !== null) {
+      if (!Number.isFinite(nextQuantity) || !Number.isInteger(nextQuantity)) {
+        setStatus({ type: "error", message: "Quantity must be an integer" });
+        return;
+      }
+      if (nextQuantity < 0) {
+        setStatus({ type: "error", message: "Quantity cannot be negative" });
+        return;
+      }
     }
 
-    setIsUpdatingId(productId);
+    setInventorySavingId(productId);
     try {
       const token = await getAccessToken();
       if (!token) throw new Error("Missing admin session");
 
-      const body = new FormData();
-      body.append("category", normalizeCategory(editForm.category));
-      body.append("name", editForm.name);
-      if (editForm.mrp_inr !== undefined) body.append("mrp_inr", editForm.mrp_inr);
-      if (editForm.mrp_usd !== undefined) body.append("mrp_usd", editForm.mrp_usd);
-      body.append("price_inr", editForm.price_inr);
-      body.append("price_usd", editForm.price_usd);
-      body.append("price", editForm.price_inr);
-      body.append("description", editForm.description);
-      body.append("sizes", JSON.stringify(editForm.sizes || []));
-
-      // Allow admin to add/reorder images by URL (even when no files are selected).
-      body.append("image1", editImageUrls.image1 || "");
-      body.append("image2", editImageUrls.image2 || "");
-      body.append("image3", editImageUrls.image3 || "");
-      body.append("image4", editImageUrls.image4 || "");
-
-      if (editRemove.image1) body.append("removeImage1", "1");
-      if (editRemove.image2) body.append("removeImage2", "1");
-      if (editRemove.image3) body.append("removeImage3", "1");
-      if (editRemove.image4) body.append("removeImage4", "1");
-
-      editImages.slice(0, 4).forEach((file) => body.append("images", file));
-
-      const res = await apiFetch(`/products/${productId}`, {
+      const res = await apiFetch(`/products/${encodeURIComponent(productId)}`, {
         method: "PUT",
-        headers: { Authorization: `Bearer ${token}` },
-        body,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ quantity: nextQuantity }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -795,14 +727,17 @@ export default function AdminPage() {
       }
 
       setProducts((prev) => prev.map((p) => (p.id === productId ? data : p)));
-      const warning = data?.warning ? `\n${data.warning}` : "";
-      setStatus({ type: "success", message: `Updated: ${data.name}${warning}` });
-      onCancelEdit();
+      setStatus({ type: "success", message: "Inventory updated" });
+      setInventoryEdits((prev) => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      });
     } catch (e) {
       console.error(e);
-      setStatus({ type: "error", message: e.message });
+      setStatus({ type: "error", message: e.message || "Failed to update inventory" });
     } finally {
-      setIsUpdatingId(null);
+      setInventorySavingId(null);
     }
   };
 
@@ -897,17 +832,936 @@ export default function AdminPage() {
     await supabase.auth.signOut();
     setAdmin(null);
     setProducts([]);
-    setActivePanel("dashboard");
+    setActivePage("dashboard");
     setStatus({ type: "success", message: "Logged out" });
   };
 
-  return (
-    <div className="section">
-      <div className="container">
-        <h1 className="section-title">Admin Panel</h1>
-        <p className="section-subtitle">Orders, Products, Tracking & Dashboard</p>
+  const renderDashboard = () => {
+    const revenueInr = orderStats.amountByCurrency?.INR || 0;
+    const revenueUsd = orderStats.amountByCurrency?.USD || 0;
 
-        <div className="auth-card" style={{ marginTop: 16 }}>
+    const recent = (orders || []).slice(0, 5);
+
+    return (
+      <div>
+        <div className="z-page-head">
+          <div>
+            <div className="z-title">Zubilo Business Dashboard</div>
+            <div className="z-subtitle">Overview of orders and revenue</div>
+          </div>
+        </div>
+
+        <div className="z-grid-stats">
+          <div className="z-card">
+            <div className="z-stat">
+              <div>
+                <div className="z-stat-label">Total Orders</div>
+                <div className="z-stat-value">{orderStats.total}</div>
+              </div>
+              <div className="z-icon-box z-icon-blue">
+                <ShoppingCart size={24} />
+              </div>
+            </div>
+          </div>
+
+          <div className="z-card">
+            <div className="z-stat">
+              <div>
+                <div className="z-stat-label">Delivered</div>
+                <div className="z-stat-value">{orderStats.byStatus.delivered}</div>
+              </div>
+              <div className="z-icon-box z-icon-green">
+                <TrendingUp size={24} />
+              </div>
+            </div>
+          </div>
+
+          <div className="z-card">
+            <div className="z-stat">
+              <div>
+                <div className="z-stat-label">Revenue (INR)</div>
+                <div className="z-stat-value">₹{Math.round(revenueInr)}</div>
+              </div>
+              <div className="z-icon-box z-icon-purple">
+                <DollarSign size={24} />
+              </div>
+            </div>
+          </div>
+
+          <div className="z-card">
+            <div className="z-stat">
+              <div>
+                <div className="z-stat-label">Revenue (USD)</div>
+                <div className="z-stat-value">${Math.round(revenueUsd)}</div>
+              </div>
+              <div className="z-icon-box z-icon-orange">
+                <DollarSign size={24} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="z-card">
+          <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+            Recent Orders
+          </div>
+          <div className="z-table-wrap">
+            <table className="z-table">
+              <thead>
+                <tr>
+                  <th>Order ID</th>
+                  <th>Customer</th>
+                  <th>Status</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recent.length ? (
+                  recent.map((o) => (
+                    <tr key={o.id}>
+                      <td className="z-strong">{o.id}</td>
+                      <td>{o.customer_name || "—"}</td>
+                      <td>
+                        <span className={statusPillClass(o.status)}>{o.status || "—"}</span>
+                      </td>
+                      <td className="z-strong">
+                        {o.currency || ""} {o.amount ?? "—"}
+                      </td>
+                      <td>{formatDateTime(o.created_at) || "—"}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} style={{ padding: 18, color: "#6b7280" }}>
+                      No orders yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderOrders = () => {
+    const empty = filteredOrdersForTab.length === 0;
+    return (
+      <div>
+        <div className="z-page-head">
+          <div>
+            <div className="z-title">Orders</div>
+            <div className="z-subtitle">Manage incoming orders</div>
+          </div>
+
+          <button className="z-btn danger" type="button" onClick={() => loadOrders()}>
+            <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+              <Download size={18} /> Download Orders Data
+            </span>
+          </button>
+        </div>
+
+        <div className="z-banner warn">
+          <img
+            className="z-banner-img"
+            alt=""
+            src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=120&q=60"
+          />
+          <div>
+            <div className="z-strong">Label download failed?</div>
+            <div className="z-subtitle">We will notify you once it's ready for download.</div>
+            <div className="z-subtitle">Don't worry! Your orders will not be blocked or lose visibility.</div>
+          </div>
+        </div>
+
+        <div className="z-banner info">
+          <img
+            className="z-banner-img"
+            alt=""
+            src="https://images.unsplash.com/photo-1582719478185-2f1f78c1b1f6?auto=format&fit=crop&w=120&q=60"
+          />
+          <div>
+            <div className="z-strong">Packaging policy</div>
+            <div className="z-subtitle">
+              As per policy, sellers must use transparent barcoded packaging.
+            </div>
+          </div>
+        </div>
+
+        <div className="z-card" style={{ marginBottom: 16 }}>
+          <div className="z-tabs">
+            {["On Hold", "Pending", "Ready to Ship", "Shipped", "Cancelled"].map((t) => (
+              <button
+                key={t}
+                type="button"
+                className={ordersTab === t ? "z-tab active" : "z-tab"}
+                onClick={() => setOrdersTab(t)}
+              >
+                {t} ({ordersTabCounts[t] ?? 0})
+              </button>
+            ))}
+          </div>
+
+          <div className="z-filters">
+            <label className="z-label">
+              SLA Status
+              <select className="z-input" defaultValue="">
+                <option value="">All</option>
+                <option value="onTime">On Time</option>
+                <option value="delayed">Delayed</option>
+              </select>
+            </label>
+            <label className="z-label">
+              Dispatch Date
+              <select className="z-input" defaultValue="">
+                <option value="">Any</option>
+                <option value="today">Today</option>
+                <option value="7">Last 7 days</option>
+              </select>
+            </label>
+            <label className="z-label">
+              Order Date
+              <select className="z-input" defaultValue="">
+                <option value="">Any</option>
+                <option value="today">Today</option>
+                <option value="30">Last 30 days</option>
+              </select>
+            </label>
+            <label className="z-label">
+              Search SKU
+              <div style={{ position: "relative" }}>
+                <input className="z-input" placeholder="SKU ID" />
+                <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "#9ca3af" }}>
+                  <Search size={18} />
+                </span>
+              </div>
+            </label>
+          </div>
+
+          {isOrdersLoading ? <div className="z-subtitle">Loading…</div> : null}
+          {ordersError ? <div className="z-subtitle" style={{ color: "#dc2626" }}>{ordersError}</div> : null}
+
+          {empty ? (
+            <div style={{ display: "grid", placeItems: "center", padding: 28, color: "#6b7280" }}>
+              <img
+                alt=""
+                src="https://images.unsplash.com/photo-1605902711622-cfb43c4437d1?auto=format&fit=crop&w=220&q=60"
+                style={{ width: 180, height: 180, objectFit: "cover", opacity: 0.4, filter: "grayscale(1)" }}
+              />
+              <div className="z-strong" style={{ marginTop: 10 }}>
+                No orders in this tab.
+              </div>
+            </div>
+          ) : (
+            <div className="z-table-wrap">
+              <table className="z-table">
+                <thead>
+                  <tr>
+                    <th>Order ID</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredOrdersForTab.map((o) => (
+                    <tr key={o.id}>
+                      <td className="z-strong">{o.id}</td>
+                      <td>{o.customer_name || "—"}</td>
+                      <td>
+                        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                          <span className={statusPillClass(o.status)}>{o.status || "—"}</span>
+                          <select
+                            className="z-input"
+                            style={{ width: 160, padding: "8px 10px" }}
+                            value={String(o.status || "pending")}
+                            onChange={(e) => onUpdateOrderStatus(o.id, e.target.value)}
+                            disabled={isTrackingBusy}
+                            aria-label={`Update status for order ${o.id}`}
+                          >
+                            <option value="pending">pending</option>
+                            <option value="confirmed">confirmed</option>
+                            <option value="shipped">shipped</option>
+                            <option value="delivered">delivered</option>
+                            <option value="cancelled">cancelled</option>
+                          </select>
+                        </div>
+                      </td>
+                      <td className="z-strong">
+                        {o.currency || ""} {o.amount ?? "—"}
+                      </td>
+                      <td>{formatDateTime(o.created_at) || "—"}</td>
+                      <td>
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                          <button
+                            className="z-btn secondary"
+                            type="button"
+                            onClick={() => selectOrderForTracking(o.id)}
+                            disabled={isTrackingBusy}
+                          >
+                            Track
+                          </button>
+                          <button
+                            className="z-btn secondary"
+                            type="button"
+                            onClick={() => onDeleteOrder(o.id)}
+                            disabled={isTrackingBusy || isOrderDeletingId === o.id}
+                          >
+                            {isOrderDeletingId === o.id ? "Deleting…" : "Delete"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderTracking = () => {
+    return (
+      <div>
+        <div className="z-page-head">
+          <div>
+            <div className="z-title">Tracking</div>
+            <div className="z-subtitle">Update tracking status for an order</div>
+          </div>
+        </div>
+
+        <div className="z-card" style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end" }}>
+            <label className="z-label" style={{ flex: 1, minWidth: 240 }}>
+              Search Order ID
+              <input
+                className="z-input"
+                placeholder="Enter order id"
+                value={selectedOrderId}
+                onChange={(e) => setSelectedOrderId(e.target.value)}
+              />
+            </label>
+            <button className="z-btn primary" type="button" onClick={loadOrders} disabled={isOrdersLoading || isTrackingBusy}>
+              Track
+            </button>
+          </div>
+        </div>
+
+        <div id="order-tracking" ref={trackingSectionRef} className="z-card">
+          <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+            Order Tracking
+          </div>
+
+          <div style={{ display: "grid", gap: 12 }}>
+            <label className="z-label">
+              Select Order*
+              <select
+                className="z-input"
+                value={selectedOrderId}
+                onChange={(e) => selectOrderForTracking(e.target.value)}
+              >
+                <option value="">-- Select --</option>
+                {orders.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.id} · {o.product_name || "Order"} · {o.customer_name || ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {selectedOrderId ? (
+              <>
+                <label className="z-label">
+                  Estimated delivery (date & time)
+                  <input
+                    className="z-input"
+                    name="estimatedDeliveryAt"
+                    type="datetime-local"
+                    value={trackingForm.estimatedDeliveryAt}
+                    onChange={onTrackingChange}
+                  />
+                </label>
+
+                <label className="z-label">
+                  Picked up from
+                  <input
+                    className="z-input"
+                    name="pickedUpFrom"
+                    type="text"
+                    placeholder="e.g., Delhi"
+                    value={trackingForm.pickedUpFrom}
+                    onChange={onTrackingChange}
+                  />
+                </label>
+
+                <label className="z-label">
+                  Picked up at (date & time)
+                  <input
+                    className="z-input"
+                    name="pickedUpAt"
+                    type="datetime-local"
+                    value={trackingForm.pickedUpAt}
+                    onChange={onTrackingChange}
+                  />
+                </label>
+
+                <label className="z-label">
+                  Out for delivery (Yes/No)
+                  <select
+                    className="z-input"
+                    name="outForDelivery"
+                    value={trackingForm.outForDelivery}
+                    onChange={onTrackingChange}
+                  >
+                    <option value="no">No</option>
+                    <option value="yes">Yes</option>
+                  </select>
+                </label>
+
+                <label className="z-label">
+                  Out for delivery at (date & time)
+                  <input
+                    className="z-input"
+                    name="outForDeliveryAt"
+                    type="datetime-local"
+                    value={trackingForm.outForDeliveryAt}
+                    onChange={onTrackingChange}
+                  />
+                </label>
+
+                <label className="z-label">
+                  Delivered at (date & time)
+                  <input
+                    className="z-input"
+                    name="deliveredAt"
+                    type="datetime-local"
+                    value={trackingForm.deliveredAt}
+                    onChange={onTrackingChange}
+                  />
+                </label>
+
+                <button className="z-btn primary" type="button" onClick={onSaveTracking} disabled={isTrackingBusy}>
+                  {isTrackingBusy ? "Saving…" : "Save Tracking"}
+                </button>
+
+                <div style={{ marginTop: 6 }}>
+                  <div className="z-strong">Received at (multiple)</div>
+                  <div className="z-subtitle">Add as many checkpoints as needed</div>
+                </div>
+
+                <label className="z-label">
+                  Received location*
+                  <input
+                    className="z-input"
+                    type="text"
+                    placeholder="e.g., Gurgaon"
+                    value={receivedLocation}
+                    onChange={(e) => {
+                      setTrackingDirty(true);
+                      setReceivedLocation(e.target.value);
+                    }}
+                  />
+                </label>
+
+                <label className="z-label">
+                  Date & time (optional)
+                  <input
+                    className="z-input"
+                    type="datetime-local"
+                    value={receivedAt}
+                    onChange={(e) => {
+                      setTrackingDirty(true);
+                      setReceivedAt(e.target.value);
+                    }}
+                  />
+                </label>
+
+                <label className="z-label">
+                  Note (optional)
+                  <input
+                    className="z-input"
+                    type="text"
+                    value={receivedNote}
+                    onChange={(e) => {
+                      setTrackingDirty(true);
+                      setReceivedNote(e.target.value);
+                    }}
+                  />
+                </label>
+
+                <button className="z-btn secondary" type="button" onClick={onAddReceived} disabled={isTrackingBusy}>
+                  {isTrackingBusy ? "Adding…" : "Add Received Location"}
+                </button>
+              </>
+            ) : (
+              <div className="z-subtitle">Select an order to update tracking.</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAddProducts = () => (
+    <div>
+      <div className="z-page-head">
+        <div>
+          <div className="z-title">Add Products</div>
+          <div className="z-subtitle">Add a new product to your store</div>
+        </div>
+      </div>
+
+      <div className="z-card">
+        <form onSubmit={onSubmit} style={{ display: "grid", gap: 12 }}>
+          <label className="z-label">
+            Category*
+            <select className="z-input" name="category" value={form.category} onChange={onChange}>
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="z-label">
+            Name*
+            <input className="z-input" name="name" value={form.name} onChange={onChange} />
+          </label>
+
+          <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginBottom: 0 }}>
+            <label className="z-label">
+              SKU (optional)
+              <input className="z-input" name="sku" value={form.sku} onChange={onChange} placeholder="SKU" />
+            </label>
+            <label className="z-label">
+              Barcode (optional)
+              <input className="z-input" name="barcode" value={form.barcode} onChange={onChange} placeholder="Barcode" />
+            </label>
+            <label className="z-label">
+              Quantity (optional)
+              <input className="z-input" name="quantity" value={form.quantity} onChange={onChange} type="number" min={0} step={1} placeholder="0" />
+            </label>
+          </div>
+
+          <label className="z-label">
+            Description
+            <textarea className="z-input" name="description" value={form.description} onChange={onChange} rows={4} />
+          </label>
+
+          <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginBottom: 0 }}>
+            <label className="z-label">
+              Price INR*
+              <input className="z-input" name="price_inr" value={form.price_inr} onChange={onChange} type="number" />
+            </label>
+            <label className="z-label">
+              MRP INR
+              <input className="z-input" name="mrp_inr" value={form.mrp_inr} onChange={onChange} type="number" />
+            </label>
+            <label className="z-label">
+              Cost (optional)
+              <input className="z-input" type="number" placeholder="—" disabled />
+            </label>
+          </div>
+
+          <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginBottom: 0 }}>
+            <label className="z-label">
+              Price USD*
+              <input className="z-input" name="price_usd" value={form.price_usd} onChange={onChange} type="number" />
+            </label>
+            <label className="z-label">
+              MRP USD
+              <input className="z-input" name="mrp_usd" value={form.mrp_usd} onChange={onChange} type="number" />
+            </label>
+            <label className="z-label">
+              SKU (optional)
+              <input className="z-input" placeholder="Use the SKU field above" disabled />
+            </label>
+          </div>
+
+          <div>
+            <div className="z-strong" style={{ marginBottom: 8 }}>
+              Sizes
+            </div>
+            <div className="sizes">
+              {PRODUCT_SIZE_OPTIONS.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className={form.sizes?.includes(s) ? "size-btn active" : "size-btn"}
+                  onClick={() => setForm((prev) => ({ ...prev, sizes: toggleSize(prev.sizes, s) }))}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <label className="z-label">
+            Product Images (max 4)
+            <input
+              className="z-input"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              onChange={(e) => setImages(Array.from(e.target.files || []))}
+            />
+          </label>
+
+          {images.length ? <div className="z-subtitle">Selected: {images.slice(0, 4).map((f) => f.name).join(", ")}</div> : null}
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button className="z-btn primary" type="submit" disabled={isSaving}>
+              {isSaving ? "Saving…" : "Add Product"}
+            </button>
+            <button className="z-btn secondary" type="button" onClick={() => setForm(initialForm)} disabled={isSaving}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  const renderInventory = () => (
+    <div>
+      <div className="z-page-head">
+        <div>
+          <div className="z-title">Inventory</div>
+          <div className="z-subtitle">Inventory UI (stock fields not configured in DB yet)</div>
+        </div>
+      </div>
+
+      <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+        <div className="z-card">
+          <div className="z-stat">
+            <div>
+              <div className="z-stat-label">Total Products</div>
+              <div className="z-stat-value">{products.length}</div>
+            </div>
+            <div className="z-icon-box z-icon-blue">
+              <Boxes size={24} />
+            </div>
+          </div>
+        </div>
+        <div className="z-card">
+          <div className="z-stat">
+            <div>
+              <div className="z-stat-label">Low Stock</div>
+              <div className="z-stat-value">{lowStockCount}</div>
+            </div>
+            <div className="z-icon-box z-icon-orange">
+              <AlertTriangle size={24} />
+            </div>
+          </div>
+        </div>
+        <div className="z-card">
+          <div className="z-stat">
+            <div>
+              <div className="z-stat-label">Out of Stock</div>
+              <div className="z-stat-value">{outOfStockCount}</div>
+            </div>
+            <div className="z-icon-box z-icon-red" style={{ background: "#fee2e2", color: "#dc2626" }}>
+              <AlertTriangle size={24} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="z-card">
+        <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+          Products
+        </div>
+        {isLoading ? <div className="z-subtitle">Loading…</div> : null}
+        <div className="z-table-wrap">
+          <table className="z-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Product Name</th>
+                <th>SKU</th>
+                <th>Barcode</th>
+                <th>Qty</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(products || []).map((p) => (
+                <tr key={p.id}>
+                  <td className="z-strong">{p.id}</td>
+                  <td>{p.name}</td>
+                  <td>{p.sku || "—"}</td>
+                  <td>{p.barcode || "—"}</td>
+                  <td style={{ width: 120 }}>
+                    <input
+                      className="z-input"
+                      style={{ padding: "8px 10px" }}
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={
+                        inventoryEdits?.[p.id]?.quantity !== undefined
+                          ? inventoryEdits[p.id].quantity
+                          : p.quantity ?? ""
+                      }
+                      onChange={(e) =>
+                        setInventoryEdits((prev) => ({
+                          ...prev,
+                          [p.id]: { ...(prev?.[p.id] || {}), quantity: e.target.value },
+                        }))
+                      }
+                    />
+                  </td>
+                  <td>{p.category || "—"}</td>
+                  <td className="z-strong">₹{p.price_inr ?? p.price ?? "—"}</td>
+                  <td>
+                    {Number(p?.quantity) === 0 ? (
+                      <span className="z-badge-pill z-pill-red">Out</span>
+                    ) : (
+                      <span className="z-badge-pill z-pill-green">In</span>
+                    )}
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <button
+                        className="z-btn primary"
+                        type="button"
+                        onClick={() => onSaveInventoryQuantity(p.id)}
+                        disabled={inventorySavingId === p.id}
+                      >
+                        {inventorySavingId === p.id ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        className="z-btn secondary"
+                        type="button"
+                        onClick={() => onDelete(p.id, p.name)}
+                        disabled={isDeletingId === p.id || inventorySavingId === p.id}
+                      >
+                        {isDeletingId === p.id ? "Deleting…" : "Delete"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPayments = () => {
+    const isIn = paymentsRegion === "IN";
+    const currency = isIn ? "₹" : "$";
+    return (
+      <div>
+        <div className="z-page-head">
+          <div>
+            <div className="z-title">Payments {isIn ? "INDIA" : "USA"}</div>
+            <div className="z-subtitle">Summary UI (transactions data not connected yet)</div>
+          </div>
+          <button className="z-btn primary" type="button">
+            Export Report
+          </button>
+        </div>
+
+        <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+          <div className="z-card">
+            <div className="z-stat">
+              <div>
+                <div className="z-stat-label">Total Revenue</div>
+                <div className="z-stat-value">{currency}—</div>
+              </div>
+              <div className="z-icon-box z-icon-green">
+                <DollarSign size={24} />
+              </div>
+            </div>
+          </div>
+          <div className="z-card">
+            <div className="z-stat">
+              <div>
+                <div className="z-stat-label">Pending</div>
+                <div className="z-stat-value">{currency}—</div>
+              </div>
+              <div className="z-icon-box z-icon-orange">
+                <DollarSign size={24} />
+              </div>
+            </div>
+          </div>
+          <div className="z-card">
+            <div className="z-stat">
+              <div>
+                <div className="z-stat-label">Today</div>
+                <div className="z-stat-value">{currency}—</div>
+              </div>
+              <div className="z-icon-box z-icon-blue">
+                <DollarSign size={24} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="z-card">
+          <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+            Recent Transactions
+          </div>
+          <div className="z-subtitle">Connect payments table/API to populate this.</div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderComplaints = () => (
+    <div>
+      <div className="z-page-head">
+        <div>
+          <div className="z-title">Complaints</div>
+          <div className="z-subtitle">Complaints UI (not connected yet)</div>
+        </div>
+      </div>
+
+      <div className="z-grid-stats">
+        {["Total", "Open", "In Progress", "Resolved"].map((x, idx) => (
+          <div key={x} className="z-card">
+            <div className="z-stat">
+              <div>
+                <div className="z-stat-label">{x}</div>
+                <div className="z-stat-value">—</div>
+              </div>
+              <div className={idx === 0 ? "z-icon-box z-icon-blue" : idx === 1 ? "z-icon-box z-icon-orange" : idx === 2 ? "z-icon-box z-icon-purple" : "z-icon-box z-icon-green"}>
+                <MessageSquareWarning size={24} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="z-card">
+        <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+          Complaint Cards
+        </div>
+        <div className="z-subtitle">Connect complaints backend to list cards here.</div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="zubilo-admin">
+      <div className="z-shell">
+        <aside className="z-sidebar" aria-label="Zubilo sidebar">
+          <div className="z-logo">
+            <div className="z-logo-dot" aria-hidden="true" />
+            <div className="z-logo-meta">
+              <div className="z-logo-name">ZUBILO</div>
+              <div className="z-logo-tag">BUSINESS DASHBOARD</div>
+            </div>
+            <div style={{ marginLeft: "auto", color: "rgba(209,213,219,0.75)" }}>
+              <ChevronDown size={16} />
+            </div>
+          </div>
+
+          <div className="z-nav" style={{ marginTop: 12 }}>
+            <button
+              type="button"
+              className={activePage === "dashboard" ? "z-nav-btn active" : "z-nav-btn"}
+              onClick={() => goto("dashboard")}
+            >
+              <LayoutDashboard size={20} /> Business Dashboard
+            </button>
+
+            <button
+              type="button"
+              className={activePage === "orders" ? "z-nav-btn active" : "z-nav-btn"}
+              onClick={() => goto("orders")}
+            >
+              <ShoppingCart size={20} /> Orders
+            </button>
+
+            <button
+              type="button"
+              className={activePage === "tracking" ? "z-nav-btn active" : "z-nav-btn"}
+              onClick={() => goto("tracking")}
+            >
+              <MapPin size={20} /> Tracking
+            </button>
+
+            <button
+              type="button"
+              className={activePage === "addProducts" ? "z-nav-btn active" : "z-nav-btn"}
+              onClick={() => goto("addProducts")}
+            >
+              <Package size={20} /> Add Products
+            </button>
+
+            <button
+              type="button"
+              className={activePage === "inventory" ? "z-nav-btn active" : "z-nav-btn"}
+              onClick={() => goto("inventory")}
+            >
+              <Boxes size={20} /> Inventory
+              <span className="z-nav-right">
+                <span className="z-badge">out of stock: {outOfStockCount}</span>
+              </span>
+            </button>
+
+            <button
+              type="button"
+              className={activePage.startsWith("payments") ? "z-nav-btn active" : "z-nav-btn"}
+              onClick={() => setPaymentsOpen((v) => !v)}
+            >
+              <DollarSign size={20} /> Payments
+              <span className="z-nav-right">
+                <ChevronDown size={16} style={{ transform: paymentsOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 180ms ease" }} />
+              </span>
+            </button>
+            {paymentsOpen ? (
+              <div className="z-subnav">
+                <button
+                  type="button"
+                  className={activePage === "paymentsIN" ? "z-nav-btn active" : "z-nav-btn"}
+                  onClick={() => {
+                    setPaymentsRegion("IN");
+                    goto("paymentsIN");
+                  }}
+                >
+                  Payments INDIAN
+                </button>
+                <button
+                  type="button"
+                  className={activePage === "paymentsUSA" ? "z-nav-btn active" : "z-nav-btn"}
+                  onClick={() => {
+                    setPaymentsRegion("USA");
+                    goto("paymentsUSA");
+                  }}
+                >
+                  Payments USA
+                </button>
+              </div>
+            ) : null}
+
+            <button
+              type="button"
+              className={activePage === "complaints" ? "z-nav-btn active" : "z-nav-btn"}
+              onClick={() => goto("complaints")}
+            >
+              <MessageSquareWarning size={20} /> Complaints
+            </button>
+          </div>
+        </aside>
+
+        <main className="z-main">
+          <div className="z-page">
+
+          <div className="auth-card" style={{ marginTop: 0 }}>
           <div className="auth-head">
             <div>
               <div className="summary-title">Admin Login</div>
@@ -1000,864 +1854,28 @@ export default function AdminPage() {
         </p>
       ) : null}
 
-      {admin ? (
-        <div className="admin-shell">
-          <aside className="admin-sidebar" aria-label="Admin menu">
-            <div className="summary-title">Business</div>
-            <div className="summary-meta" style={{ marginTop: 6 }}>
-              {admin?.email ? admin.email : ""}
-            </div>
-
-            <div className="admin-nav">
-              <button
-                type="button"
-                className={activePanel === "dashboard" ? "admin-nav-btn active" : "admin-nav-btn"}
-                onClick={() => openPanel("dashboard")}
-              >
-                Home / Dashboard
-              </button>
-
-              <div className="admin-nav-group">
-                <div className="admin-nav-group-head">
-                  <button
-                    type="button"
-                    className={navOpen.orders ? "admin-nav-btn active" : "admin-nav-btn"}
-                    onClick={() => setNavOpen((p) => ({ ...p, orders: !p.orders }))}
-                  >
-                    Orders
-                  </button>
-                  <div className="summary-meta">{navOpen.orders ? "-" : "+"}</div>
-                </div>
-
-                {navOpen.orders ? (
-                  <div className="admin-nav-sub">
-                    <button
-                      type="button"
-                      className={activePanel === "orders" ? "admin-nav-btn active" : "admin-nav-btn"}
-                      onClick={() => openPanel("orders")}
-                    >
-                      All Orders
-                    </button>
-                    <button
-                      type="button"
-                      className={activePanel === "tracking" ? "admin-nav-btn active" : "admin-nav-btn"}
-                      onClick={() => openPanel("tracking")}
-                    >
-                      Tracking
-                    </button>
-                  </div>
-                ) : null}
+            {status.message ? (
+              <div className="z-subtitle" style={{ color: status.type === "error" ? "#dc2626" : "#16a34a", marginBottom: 12 }}>
+                {status.message}
               </div>
-
-              <div className="admin-nav-group">
-                <div className="admin-nav-group-head">
-                  <button
-                    type="button"
-                    className={navOpen.products ? "admin-nav-btn active" : "admin-nav-btn"}
-                    onClick={() => setNavOpen((p) => ({ ...p, products: !p.products }))}
-                  >
-                    Products
-                  </button>
-                  <div className="summary-meta">{navOpen.products ? "-" : "+"}</div>
-                </div>
-
-                {navOpen.products ? (
-                  <div className="admin-nav-sub">
-                    <button
-                      type="button"
-                      className={activePanel === "addProduct" ? "admin-nav-btn active" : "admin-nav-btn"}
-                      onClick={() => openPanel("addProduct")}
-                    >
-                      Add Product
-                    </button>
-                    <button
-                      type="button"
-                      className={activePanel === "products" ? "admin-nav-btn active" : "admin-nav-btn"}
-                      onClick={() => openPanel("products")}
-                    >
-                      All Products
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </aside>
-
-          <div className="admin-main">
-            {activePanel === "orders" ? (
-              <div>
-              <h2 className="section-title" style={{ fontSize: 28 }}>
-                Orders ({orders.length})
-              </h2>
-              <p className="section-subtitle">All incoming orders on this website</p>
-
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                <button
-                  className="secondary-btn"
-                  type="button"
-                  onClick={loadOrders}
-                  disabled={isOrdersLoading || isTrackingBusy}
-                >
-                  {isOrdersLoading ? "Loading…" : "Refresh Orders"}
-                </button>
-              </div>
-
-              {isOrdersLoading ? <p className="status">Loading…</p> : null}
-              {ordersError ? (
-                <p className="status" style={{ color: "crimson" }}>
-                  {ordersError}
-                </p>
-              ) : null}
-              {selectedOrderId ? (
-                <p className="status" style={{ marginTop: 6 }}>
-                  Selected for tracking: {selectedOrderId}
-                </p>
-              ) : null}
-              {!isOrdersLoading && orders.length === 0 ? <p className="status">No orders yet.</p> : null}
-
-              <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
-                {orders.map((o) => (
-                  <div key={o.id} className="cart-card" style={{ padding: 16 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                      <div>
-                        <div className="summary-title">{o.product_name || "Order"}</div>
-                        <div className="summary-meta" style={{ marginTop: 6 }}>
-                          Order ID: {o.id}
-                        </div>
-                        <div className="summary-meta">Date: {formatDateTime(o.created_at)}</div>
-                        {o.size ? <div className="summary-meta">Size: {o.size}</div> : null}
-                        <div className="summary-meta">
-                          Amount: {o.amount} {o.currency || ""} · Payment: {o.payment_method}
-                        </div>
-                        <div className="summary-meta">Status: {o.status}</div>
-                        {o.return_status ? <div className="summary-meta">Return: {o.return_status}</div> : null}
-
-                        <div className="summary-meta" style={{ marginTop: 10, fontWeight: 600 }}>
-                          Customer Details
-                        </div>
-                        <div className="summary-meta">Name: {o.customer_name || "—"}</div>
-                        <div className="summary-meta">Phone: {o.phone || "—"}</div>
-                        <div className="summary-meta">Email: {o.email || "—"}</div>
-                        <div className="summary-meta">
-                          Address: {o.address || ""}{o.city ? `, ${o.city}` : ""}{o.state ? `, ${o.state}` : ""}{o.pincode ? ` - ${o.pincode}` : ""}
-                        </div>
-                      </div>
-
-                      <div style={{ minWidth: 220 }}>
-                        <label style={{ display: "grid", gap: 6 }}>
-                          Update Status
-                          <select
-                            value={o.status || "pending"}
-                            onChange={(e) => onUpdateOrderStatus(o.id, e.target.value)}
-                            disabled={isTrackingBusy}
-                            style={{ width: "100%" }}
-                          >
-                            <option value="pending">pending</option>
-                            <option value="confirmed">confirmed</option>
-                            <option value="shipped">shipped</option>
-                            <option value="delivered">delivered</option>
-                            <option value="cancelled">cancelled</option>
-                          </select>
-                        </label>
-
-                        <button
-                          className="secondary-btn"
-                          type="button"
-                          onClick={() => selectOrderForTracking(o.id)}
-                          disabled={isTrackingBusy}
-                          style={{ marginTop: 10, width: "100%" }}
-                        >
-                          Open in Tracking Panel
-                        </button>
-
-                        <button
-                          className="secondary-btn"
-                          type="button"
-                          onClick={() => onDeleteOrder(o.id)}
-                          disabled={isTrackingBusy || isOrderDeletingId === o.id}
-                          style={{ marginTop: 10, width: "100%" }}
-                        >
-                          {isOrderDeletingId === o.id ? "Deleting…" : "Delete Order"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             ) : null}
 
-            {activePanel === "tracking" ? (
-            <div id="order-tracking" style={{ marginTop: 0 }} ref={trackingSectionRef}>
-              <h2 className="section-title" style={{ fontSize: 28 }}>
-                Order Tracking
-              </h2>
-              <p className="section-subtitle">
-                Manual entry: estimated delivery, pickup, received locations, out for delivery
-              </p>
+            {!admin ? null : (
+              <>
+                {activePage === "dashboard" ? renderDashboard() : null}
+                {activePage === "orders" ? renderOrders() : null}
+                {activePage === "tracking" ? renderTracking() : null}
+                {activePage === "addProducts" ? renderAddProducts() : null}
+                {activePage === "inventory" ? renderInventory() : null}
+                {activePage === "paymentsIN" || activePage === "paymentsUSA" ? renderPayments() : null}
+                {activePage === "complaints" ? renderComplaints() : null}
+              </>
+            )}
 
-              <div className="auth-card" style={{ marginTop: 12 }}>
-                <div style={{ display: "grid", gap: 10 }}>
-                  <label>
-                    Select Order*
-                    <select
-                      value={selectedOrderId}
-                      onChange={(e) => selectOrderForTracking(e.target.value)}
-                      style={{ width: "100%" }}
-                    >
-                      <option value="">-- Select --</option>
-                      {orders.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.id} · {o.product_name || "Order"} · {o.customer_name || ""}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <button
-                    className="secondary-btn"
-                    type="button"
-                    onClick={loadOrders}
-                    disabled={isOrdersLoading || isTrackingBusy}
-                  >
-                    {isOrdersLoading ? "Loading…" : "Refresh Orders"}
-                  </button>
-                </div>
-
-                {selectedOrderId ? (
-                  <>
-                    <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
-                      <label>
-                        Estimated delivery (date & time)
-                        <input
-                          name="estimatedDeliveryAt"
-                          type="datetime-local"
-                          value={trackingForm.estimatedDeliveryAt}
-                          onChange={onTrackingChange}
-                          style={{ width: "100%" }}
-                        />
-                      </label>
-
-                      <label>
-                        Picked up from
-                        <input
-                          name="pickedUpFrom"
-                          type="text"
-                          placeholder="e.g., Delhi"
-                          value={trackingForm.pickedUpFrom}
-                          onChange={onTrackingChange}
-                          style={{ width: "100%" }}
-                        />
-                      </label>
-
-                      <label>
-                        Picked up at (date & time)
-                        <input
-                          name="pickedUpAt"
-                          type="datetime-local"
-                          value={trackingForm.pickedUpAt}
-                          onChange={onTrackingChange}
-                          style={{ width: "100%" }}
-                        />
-                      </label>
-
-                      <label>
-                        Out for delivery (Yes/No)
-                        <select
-                          name="outForDelivery"
-                          value={trackingForm.outForDelivery}
-                          onChange={onTrackingChange}
-                          style={{ width: "100%" }}
-                        >
-                          <option value="no">No</option>
-                          <option value="yes">Yes</option>
-                        </select>
-                      </label>
-
-                      <label>
-                        Out for delivery at (date & time)
-                        <input
-                          name="outForDeliveryAt"
-                          type="datetime-local"
-                          value={trackingForm.outForDeliveryAt}
-                          onChange={onTrackingChange}
-                          style={{ width: "100%" }}
-                        />
-                      </label>
-
-                      <label>
-                        Delivered at (date & time)
-                        <input
-                          name="deliveredAt"
-                          type="datetime-local"
-                          value={trackingForm.deliveredAt}
-                          onChange={onTrackingChange}
-                          style={{ width: "100%" }}
-                        />
-                      </label>
-
-                      <button
-                        className="primary-btn"
-                        type="button"
-                        onClick={onSaveTracking}
-                        disabled={isTrackingBusy}
-                      >
-                        {isTrackingBusy ? "Saving…" : "Save Tracking"}
-                      </button>
-                    </div>
-
-                    <div style={{ marginTop: 16 }}>
-                      <div className="summary-title">Received at (multiple)</div>
-                      <div className="summary-meta">Add as many checkpoints as needed</div>
-
-                      <div style={{ display: "grid", gap: 12, marginTop: 10 }}>
-                        <label>
-                          Received location*
-                          <input
-                            type="text"
-                            placeholder="e.g., Gurgaon"
-                            value={receivedLocation}
-                            onChange={(e) => {
-                              setTrackingDirty(true);
-                              setReceivedLocation(e.target.value);
-                            }}
-                            style={{ width: "100%" }}
-                          />
-                        </label>
-
-                        <label>
-                          Date & time (optional)
-                          <input
-                            type="datetime-local"
-                            value={receivedAt}
-                            onChange={(e) => {
-                              setTrackingDirty(true);
-                              setReceivedAt(e.target.value);
-                            }}
-                            style={{ width: "100%" }}
-                          />
-                        </label>
-
-                        <label>
-                          Note (optional)
-                          <input
-                            type="text"
-                            value={receivedNote}
-                            onChange={(e) => {
-                              setTrackingDirty(true);
-                              setReceivedNote(e.target.value);
-                            }}
-                            style={{ width: "100%" }}
-                          />
-                        </label>
-
-                        <button
-                          className="secondary-btn"
-                          type="button"
-                          onClick={onAddReceived}
-                          disabled={isTrackingBusy}
-                        >
-                          {isTrackingBusy ? "Adding…" : "Add Received Location"}
-                        </button>
-                      </div>
-
-                      <div style={{ marginTop: 12 }}>
-                        {(() => {
-                          const o = orders.find((x) => String(x.id) === String(selectedOrderId));
-                          const received = Array.isArray(o?.tracking_received) ? o.tracking_received : [];
-                          if (!received.length) return <p className="status">No received updates yet.</p>;
-                          return (
-                            <div className="status" style={{ display: "grid", gap: 6 }}>
-                              {received.slice(0, 10).map((u) => (
-                                <div key={u.id}>
-                                  - {u.location}
-                                  {u.created_at ? ` (${new Date(u.created_at).toLocaleString()})` : ""}
-                                  {u.note ? ` · ${u.note}` : ""}
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <p className="status" style={{ marginTop: 12 }}>
-                    Select an order to update tracking.
-                  </p>
-                )}
-              </div>
-            </div>
-            ) : null}
-
-            {activePanel === "dashboard" ? (
-            <div>
-              <h2 className="section-title" style={{ fontSize: 28 }}>
-                Business Dashboard
-              </h2>
-              <p className="section-subtitle">Quick summary (based on loaded orders)</p>
-
-              <div className="admin-dashboard">
-                <div className="cart-card" style={{ padding: 16 }}>
-                  <div className="summary-title">Total Orders</div>
-                  <div className="summary-meta" style={{ marginTop: 6, fontSize: 18, fontWeight: 700 }}>
-                    {orderStats.total}
-                  </div>
-                </div>
-
-                <div className="cart-card" style={{ padding: 16 }}>
-                  <div className="summary-title">By Status</div>
-                  <div className="summary-meta" style={{ marginTop: 6, display: "grid", gap: 4 }}>
-                    <div>pending: {orderStats.byStatus.pending}</div>
-                    <div>confirmed: {orderStats.byStatus.confirmed}</div>
-                    <div>shipped: {orderStats.byStatus.shipped}</div>
-                    <div>delivered: {orderStats.byStatus.delivered}</div>
-                    <div>cancelled: {orderStats.byStatus.cancelled}</div>
-                  </div>
-                </div>
-
-                <div className="cart-card" style={{ padding: 16 }}>
-                  <div className="summary-title">Revenue (sum)</div>
-                  <div className="summary-meta" style={{ marginTop: 6, display: "grid", gap: 4 }}>
-                    {Object.keys(orderStats.amountByCurrency || {}).length ? (
-                      Object.entries(orderStats.amountByCurrency).map(([cur, amt]) => (
-                        <div key={cur}>
-                          {cur}: {Math.round((amt + Number.EPSILON) * 100) / 100}
-                        </div>
-                      ))
-                    ) : (
-                      <div>—</div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="cart-card" style={{ padding: 16 }}>
-                  <div className="summary-title">Latest Order</div>
-                  <div className="summary-meta" style={{ marginTop: 6 }}>
-                    {orderStats.last ? (
-                      <>
-                        <div>#{orderStats.last.id}</div>
-                        <div>{formatDateTime(orderStats.last.created_at)}</div>
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-            ) : null}
-
-            {activePanel === "addProduct" ? (
-            <div>
-              <h2 className="section-title" style={{ fontSize: 28 }}>
-                Add Products
-              </h2>
-              <p className="section-subtitle">Add a new product to your store</p>
-
-              <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, marginTop: 12 }}>
-                <label>
-                  Category*
-                  <select
-                    name="category"
-                    value={form.category}
-                    onChange={onChange}
-                    style={{ width: "100%" }}
-                  >
-                    {CATEGORIES.map((c) => (
-                      <option key={c.value} value={c.value}>
-                        {c.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <label>
-                  Name*
-                  <input
-                    name="name"
-                    value={form.name}
-                    onChange={onChange}
-                    style={{ width: "100%" }}
-                  />
-                </label>
-
-                <div>
-                  <div className="label">Available Sizes</div>
-                  <div className="sizes">
-                    {PRODUCT_SIZE_OPTIONS.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        className={form.sizes?.includes(s) ? "size-btn active" : "size-btn"}
-                        onClick={() => setForm((prev) => ({ ...prev, sizes: toggleSize(prev.sizes, s) }))}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <label>
-                  MRP INR (India) (optional)
-                  <input
-                    name="mrp_inr"
-                    value={form.mrp_inr}
-                    onChange={onChange}
-                    type="number"
-                    style={{ width: "100%" }}
-                    placeholder="e.g. 1999"
-                  />
-                </label>
-
-                <label>
-                  MRP USD (USA) (optional)
-                  <input
-                    name="mrp_usd"
-                    value={form.mrp_usd}
-                    onChange={onChange}
-                    type="number"
-                    style={{ width: "100%" }}
-                    placeholder="e.g. 49"
-                  />
-                </label>
-
-                <div className="status">
-                  Customer ko discount % automatically show hoga (MRP vs Price).
-                </div>
-
-                <label>
-                  Price INR (India)*
-                  <input
-                    name="price_inr"
-                    value={form.price_inr}
-                    onChange={onChange}
-                    type="number"
-                    style={{ width: "100%" }}
-                  />
-                </label>
-
-                <label>
-                  Price USD (USA)*
-                  <input
-                    name="price_usd"
-                    value={form.price_usd}
-                    onChange={onChange}
-                    type="number"
-                    style={{ width: "100%" }}
-                  />
-                </label>
-
-                <label>
-                  Description
-                  <textarea
-                    name="description"
-                    value={form.description}
-                    onChange={onChange}
-                    rows={3}
-                    style={{ width: "100%" }}
-                  />
-                </label>
-
-                <label>
-                  Product Images (max 4)
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    multiple
-                    onChange={(e) => setImages(Array.from(e.target.files || []))}
-                  />
-                </label>
-
-                {images.length ? (
-                  <div className="status">
-                    Selected: {images.slice(0, 4).map((f) => f.name).join(", ")}
-                  </div>
-                ) : null}
-
-                <button className="primary-btn" type="submit" disabled={isSaving}>
-                  {isSaving ? "Saving..." : "Add Product"}
-                </button>
-              </form>
-            </div>
-            ) : null}
-
-            {activePanel === "products" ? (
-            <div>
-              <h2 className="section-title" style={{ fontSize: 28 }}>
-                Products ({productCount})
-              </h2>
-
-              {isLoading ? <p className="status">Loading…</p> : null}
-
-              {!isLoading && products.length === 0 ? (
-                <p className="status">No products yet.</p>
-              ) : null}
-
-              <div className="admin-list" aria-label="All products">
-                {products.map((p) => (
-                  <div key={p.id}>
-                    <div className="admin-item">
-                      <div className="admin-thumb">
-                        <img
-                          src={p.image1 || "https://via.placeholder.com/120"}
-                          alt={p.name}
-                        />
-                      </div>
-
-                      <div className="admin-meta">
-                        <div className="summary-title">{p.name}</div>
-                        <div className="summary-meta">
-                          INR: ₹{p.price_inr ?? p.price}
-                          {p.price_usd !== undefined && p.price_usd !== null && p.price_usd !== "" ? ` · USA: $${p.price_usd}` : ""}
-                        </div>
-                        <div className="summary-meta">
-                          Sizes: {Array.isArray(p.sizes) && p.sizes.length ? p.sizes.join(", ") : "—"}
-                        </div>
-                        <div className="summary-meta">ID: {p.id}</div>
-                      </div>
-
-                      <div className="admin-actions">
-                        {editingId === p.id ? (
-                          <>
-                            <button
-                              className="secondary-btn"
-                              type="button"
-                              onClick={() => onUpdate(p.id)}
-                              disabled={isUpdatingId === p.id}
-                            >
-                              {isUpdatingId === p.id ? "Saving…" : "Save"}
-                            </button>
-                            <button
-                              className="secondary-btn"
-                              type="button"
-                              onClick={onCancelEdit}
-                              disabled={isUpdatingId === p.id}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            className="secondary-btn"
-                            type="button"
-                            onClick={() => onStartEdit(p)}
-                          >
-                            Edit
-                          </button>
-                        )}
-
-                        <button
-                          className="secondary-btn"
-                          type="button"
-                          onClick={() => onDelete(p.id, p.name)}
-                          disabled={isDeletingId === p.id || editingId === p.id}
-                          style={{ marginLeft: 10 }}
-                        >
-                          {isDeletingId === p.id ? "Deleting…" : "Delete"}
-                        </button>
-                      </div>
-                    </div>
-
-                    {editingId === p.id ? (
-                      <div className="admin-edit" aria-label="Edit product">
-                        <div className="admin-edit-images" aria-label="Existing images">
-                          {[
-                            { slot: "image1", label: "Image 1" },
-                            { slot: "image2", label: "Image 2" },
-                            { slot: "image3", label: "Image 3" },
-                            { slot: "image4", label: "Image 4" },
-                          ].map(({ slot, label }, idx, list) => {
-                            const url = editImageUrls?.[slot] || "";
-                            const removed = !!editRemove?.[slot];
-                            const disableUrlTools = isUpdatingId === p.id || editImages.length > 0;
-                            return (
-                              <div key={slot} className="admin-edit-img-wrap">
-                                <div className={removed ? "admin-edit-img removed" : "admin-edit-img"}>
-                                  {url ? <img src={url} alt="" /> : <div className="admin-edit-img-empty" />}
-                                  {url || removed ? (
-                                    <button
-                                      type="button"
-                                      className="admin-img-btn"
-                                      onClick={() => onToggleRemoveImage(slot)}
-                                      disabled={isUpdatingId === p.id}
-                                    >
-                                      {removed ? "Undo" : "Remove"}
-                                    </button>
-                                  ) : null}
-                                </div>
-
-                                <input
-                                  className="admin-img-input"
-                                  value={url}
-                                  onChange={(e) => setEditImageUrl(slot, e.target.value)}
-                                  placeholder={`${label} URL paste karo`}
-                                  disabled={disableUrlTools}
-                                />
-
-                                <div className="admin-img-reorder" aria-label={`${label} reorder`}>
-                                  <button
-                                    type="button"
-                                    className="admin-img-mini-btn"
-                                    onClick={() => swapImageSlots(slot, list[idx - 1]?.slot)}
-                                    disabled={disableUrlTools || idx === 0}
-                                  >
-                                    Up
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="admin-img-mini-btn"
-                                    onClick={() => swapImageSlots(slot, list[idx + 1]?.slot)}
-                                    disabled={disableUrlTools || idx === list.length - 1}
-                                  >
-                                    Down
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {editImages.length ? (
-                          <div className="status" style={{ marginBottom: 12 }}>
-                            Note: Replace Images selected hai — URL add/reorder disabled (upload ke baad slots 1-4 replace ho jayenge).
-                          </div>
-                        ) : null}
-
-                        <div style={{ marginBottom: 12 }}>
-                          <div className="label">Available Sizes</div>
-                          <div className="sizes">
-                            {PRODUCT_SIZE_OPTIONS.map((s) => (
-                              <button
-                                key={s}
-                                type="button"
-                                className={editForm.sizes?.includes(s) ? "size-btn active" : "size-btn"}
-                                onClick={() =>
-                                  setEditForm((prev) => ({
-                                    ...prev,
-                                    sizes: toggleSize(prev?.sizes, s),
-                                  }))
-                                }
-                                disabled={isUpdatingId === p.id}
-                              >
-                                {s}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="admin-edit-grid">
-                          <label>
-                            Category*
-                            <select
-                              name="category"
-                              value={editForm.category}
-                              onChange={onEditChange}
-                              disabled={isUpdatingId === p.id}
-                            >
-                              {CATEGORIES.map((c) => (
-                                <option key={c.value} value={c.value}>
-                                  {c.label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-
-                          <label>
-                            Name*
-                            <input
-                              name="name"
-                              value={editForm.name}
-                              onChange={onEditChange}
-                            />
-                          </label>
-
-                          <label>
-                            Price INR*
-                            <input
-                              name="price_inr"
-                              value={editForm.price_inr}
-                              onChange={onEditChange}
-                              type="number"
-                              disabled={isUpdatingId === p.id}
-                            />
-                          </label>
-
-                          <label>
-                            Price USD*
-                            <input
-                              name="price_usd"
-                              value={editForm.price_usd}
-                              onChange={onEditChange}
-                              type="number"
-                              disabled={isUpdatingId === p.id}
-                            />
-                          </label>
-
-                          <label>
-                            MRP INR
-                            <input
-                              name="mrp_inr"
-                              value={editForm.mrp_inr}
-                              onChange={onEditChange}
-                              type="number"
-                              disabled={isUpdatingId === p.id}
-                              placeholder="e.g. 1999"
-                            />
-                          </label>
-
-                          <label>
-                            MRP USD
-                            <input
-                              name="mrp_usd"
-                              value={editForm.mrp_usd}
-                              onChange={onEditChange}
-                              type="number"
-                              disabled={isUpdatingId === p.id}
-                              placeholder="e.g. 49"
-                            />
-                          </label>
-                        </div>
-
-                        <label>
-                          Description
-                          <textarea
-                            name="description"
-                            value={editForm.description}
-                            onChange={onEditChange}
-                            rows={3}
-                          />
-                        </label>
-
-                        <label>
-                          Replace Images (optional, max 4)
-                          <input
-                            type="file"
-                            accept="image/png,image/jpeg,image/webp"
-                            multiple
-                            onChange={(e) => setEditImages(Array.from(e.target.files || []))}
-                            disabled={isUpdatingId === p.id}
-                          />
-                        </label>
-
-                        {editImages.length ? (
-                          <div className="status">
-                            Selected: {editImages.slice(0, 4).map((f) => f.name).join(", ")}
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-            ) : null}
           </div>
-        </div>
-      ) : null}
-
+        </main>
       </div>
+
     </div>
   );
 }

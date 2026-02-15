@@ -2070,6 +2070,438 @@ textarea {
   transition: border-color 180ms ease, background 180ms ease;
 }
 
+/* ------------------------------
+   ZUBILO Admin (scoped styles)
+   ------------------------------ */
+.zubilo-admin {
+  --z-bg: #f9fafb;
+  --z-card: #ffffff;
+  --z-border: #e5e7eb;
+  --z-text: #111827;
+  --z-muted: #6b7280;
+  --z-sidebar: #1a1a2e;
+  --z-sidebar-active: #2d2d44;
+  --z-sidebar-border: #374151;
+  --z-sidebar-text: #d1d5db;
+  --z-sidebar-text-active: #ffffff;
+  min-height: 100vh;
+  background: var(--z-bg);
+  color: var(--z-text);
+}
+
+.zubilo-admin .z-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.zubilo-admin .z-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 256px;
+  background: var(--z-sidebar);
+  border-right: 1px solid var(--z-sidebar-border);
+  color: var(--z-sidebar-text);
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.zubilo-admin .z-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--z-sidebar-border);
+}
+
+.zubilo-admin .z-logo-dot {
+  width: 32px;
+  height: 32px;
+  background: #ffffff;
+}
+
+.zubilo-admin .z-logo-meta {
+  display: grid;
+  line-height: 1.1;
+}
+
+.zubilo-admin .z-logo-name {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.zubilo-admin .z-logo-tag {
+  font-size: 11px;
+  color: rgba(209, 213, 219, 0.8);
+}
+
+.zubilo-admin .z-nav {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.zubilo-admin .z-nav-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--z-sidebar-text);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.zubilo-admin .z-nav-btn:hover,
+.zubilo-admin .z-nav-btn.active {
+  background: var(--z-sidebar-active);
+  color: var(--z-sidebar-text-active);
+}
+
+.zubilo-admin .z-nav-btn .z-nav-right {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zubilo-admin .z-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.zubilo-admin .z-subnav {
+  margin-left: 28px;
+  margin-top: 6px;
+  display: grid;
+  gap: 4px;
+}
+
+.zubilo-admin .z-main {
+  margin-left: 256px;
+  flex: 1;
+  min-width: 0;
+}
+
+.zubilo-admin .z-page {
+  padding: 32px;
+}
+
+.zubilo-admin .z-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.zubilo-admin .z-title {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--z-text);
+  font-family: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen, Ubuntu, Cantarell, "Helvetica Neue", Arial, sans-serif;
+}
+
+.zubilo-admin .z-subtitle {
+  color: var(--z-muted);
+  margin-top: 6px;
+}
+
+.zubilo-admin .z-btn {
+  border: 1px solid var(--z-border);
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.zubilo-admin .z-btn.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.zubilo-admin .z-btn.danger {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.zubilo-admin .z-btn.secondary {
+  background: #e5e7eb;
+  border-color: #e5e7eb;
+  color: #374151;
+}
+
+.zubilo-admin .z-btn:hover {
+  filter: brightness(0.95);
+}
+
+.zubilo-admin .z-grid-stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+@media (min-width: 768px) {
+  .zubilo-admin .z-grid-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .zubilo-admin .z-grid-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.zubilo-admin .z-card {
+  background: var(--z-card);
+  border: 1px solid var(--z-border);
+  padding: 18px;
+}
+
+.zubilo-admin .z-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.zubilo-admin .z-stat-label {
+  font-size: 12px;
+  color: var(--z-muted);
+  font-weight: 700;
+}
+
+.zubilo-admin .z-stat-value {
+  margin-top: 6px;
+  font-size: 30px;
+  font-weight: 800;
+}
+
+.zubilo-admin .z-icon-box {
+  padding: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.zubilo-admin .z-icon-blue {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.zubilo-admin .z-icon-green {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.zubilo-admin .z-icon-purple {
+  background: #f3e8ff;
+  color: #7c3aed;
+}
+
+.zubilo-admin .z-icon-orange {
+  background: #ffedd5;
+  color: #ea580c;
+}
+
+.zubilo-admin .z-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.zubilo-admin .z-table-wrap {
+  overflow-x: auto;
+}
+
+.zubilo-admin .z-table th {
+  background: #f9fafb;
+  border-bottom: 1px solid var(--z-border);
+  padding: 14px 18px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #4b5563;
+  text-align: left;
+}
+
+.zubilo-admin .z-table td {
+  border-bottom: 1px solid var(--z-border);
+  padding: 14px 18px;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.zubilo-admin .z-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.zubilo-admin .z-strong {
+  font-weight: 700;
+  color: #111827;
+}
+
+.zubilo-admin .z-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.zubilo-admin .z-pill-green {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.zubilo-admin .z-pill-blue {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.zubilo-admin .z-pill-yellow {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.zubilo-admin .z-pill-orange {
+  background: #ffedd5;
+  color: #9a3412;
+}
+
+.zubilo-admin .z-pill-red {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.zubilo-admin .z-pill-purple {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.zubilo-admin .z-tabs {
+  display: flex;
+  gap: 22px;
+  border-bottom: 1px solid var(--z-border);
+  margin-bottom: 14px;
+}
+
+.zubilo-admin .z-tab {
+  position: relative;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 12px 2px;
+  color: #4b5563;
+  font-weight: 700;
+}
+
+.zubilo-admin .z-tab.active {
+  color: #2563eb;
+}
+
+.zubilo-admin .z-tab.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: #2563eb;
+}
+
+.zubilo-admin .z-banner {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  border: 1px solid;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.zubilo-admin .z-banner.warn {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.zubilo-admin .z-banner.info {
+  background: #faf5ff;
+  border-color: #e9d5ff;
+}
+
+.zubilo-admin .z-banner-img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  opacity: 0.9;
+}
+
+.zubilo-admin .z-filters {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 768px) {
+  .zubilo-admin .z-filters {
+    grid-template-columns: 160px 160px 160px 1fr;
+  }
+}
+
+.zubilo-admin label.z-label {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #374151;
+}
+
+.zubilo-admin input.z-input,
+.zubilo-admin select.z-input,
+.zubilo-admin textarea.z-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  outline: none;
+}
+
+.zubilo-admin input.z-input:focus,
+.zubilo-admin select.z-input:focus,
+.zubilo-admin textarea.z-input:focus {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
+  border-color: #2563eb;
+}
+
+@media (max-width: 900px) {
+  .zubilo-admin .z-sidebar {
+    position: static;
+    width: 100%;
+    height: auto;
+  }
+
+  .zubilo-admin .z-main {
+    margin-left: 0;
+  }
+
+  .zubilo-admin .z-shell {
+    flex-direction: column;
+  }
+}
+
 input:focus,
 textarea:focus {
   outline: none;
