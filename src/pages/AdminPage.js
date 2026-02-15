@@ -127,6 +127,7 @@ export default function AdminPage() {
   const [orders, setOrders] = useState([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
+  const [isOrderDeletingId, setIsOrderDeletingId] = useState(null);
   const [selectedOrderId, setSelectedOrderId] = useState("");
   const [trackingForm, setTrackingForm] = useState({
     estimatedDeliveryAt: "",
@@ -457,6 +458,46 @@ export default function AdminPage() {
       setStatus({ type: "error", message: e.message || "Failed to update order status" });
     } finally {
       setIsTrackingBusy(false);
+    }
+  };
+
+  const onDeleteOrder = async (orderId) => {
+    setStatus({ type: "", message: "" });
+    if (!admin) {
+      setStatus({ type: "error", message: "Please login as admin first" });
+      return;
+    }
+
+    const ok = window.confirm(`Delete order #${orderId}? This cannot be undone.`);
+    if (!ok) return;
+
+    setIsOrderDeletingId(orderId);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+
+      const res = await apiFetch(`/admin/orders/${encodeURIComponent(orderId)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error || payload?.message || `Delete failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      setOrders((prev) => prev.filter((o) => String(o.id) !== String(orderId)));
+      if (String(selectedOrderId) === String(orderId)) {
+        setSelectedOrderId("");
+        setTrackingDirty(false);
+      }
+      setStatus({ type: "success", message: `Deleted order: ${orderId}` });
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: "error", message: e.message || "Failed to delete order" });
+    } finally {
+      setIsOrderDeletingId(null);
     }
   };
 
@@ -988,6 +1029,16 @@ export default function AdminPage() {
                         style={{ marginTop: 10, width: "100%" }}
                       >
                         Open in Tracking Panel
+                      </button>
+
+                      <button
+                        className="secondary-btn"
+                        type="button"
+                        onClick={() => onDeleteOrder(o.id)}
+                        disabled={isTrackingBusy || isOrderDeletingId === o.id}
+                        style={{ marginTop: 10, width: "100%" }}
+                      >
+                        {isOrderDeletingId === o.id ? "Deleting…" : "Delete Order"}
                       </button>
                     </div>
                   </div>
