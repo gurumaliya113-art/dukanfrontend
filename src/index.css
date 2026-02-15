@@ -178,6 +178,23 @@ p {
   border-bottom: 1px solid transparent;
 }
 
+/* Admin: hide the regular white/glass navbar layout, keep only centered branding. */
+.nav.nav-admin {
+  background: transparent;
+  border-bottom-color: transparent;
+}
+
+.nav.nav-admin .nav-inner {
+  grid-template-columns: 1fr;
+  height: 74px;
+}
+
+.brand.brand-admin {
+  color: #facc15;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
 .nav.scrolled {
   background: var(--glass);
   backdrop-filter: blur(14px);

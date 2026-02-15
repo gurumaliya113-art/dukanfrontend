@@ -32,10 +32,27 @@ export default function Navbar() {
     setMobileMenuOpen(false);
   }, [location.pathname, location.search]);
 
+  if (isAdminRoute) {
+    return (
+      <header className={"nav nav-admin"} aria-label="Admin navigation">
+        <div className="container nav-inner nav-admin-inner">
+          <Link to="/" className="brand brand-admin" aria-label="ZUBILO Home">
+            ZUBILO
+          </Link>
+        </div>
+      </header>
+    );
+  }
+
   return (
-    <header className={["nav", scrolled ? "scrolled" : "", homeTop ? "home-top" : ""]
-      .filter(Boolean)
-      .join(" ")}
+    <header
+      className={[
+        "nav",
+        scrolled ? "scrolled" : "",
+        homeTop ? "home-top" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       {!isAdminRoute ? (
         <div className="promo-bar" role="region" aria-label="Announcement">
