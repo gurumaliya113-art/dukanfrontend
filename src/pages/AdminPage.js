@@ -1171,8 +1171,10 @@ export default function AdminPage() {
       rto_cost: 0,
     };
 
-    const deliveryRtoAdsInr = (inrCosts.delivery_cost || 0) + (inrCosts.rto_cost || 0) + (inrCosts.ads_cost || 0);
-    const deliveryRtoAdsUsd = (usdCosts.delivery_cost || 0) + (usdCosts.rto_cost || 0) + (usdCosts.ads_cost || 0);
+    const deliveryPackingRtoAdsInr =
+      (inrCosts.delivery_cost || 0) + (inrCosts.packing_cost || 0) + (inrCosts.rto_cost || 0) + (inrCosts.ads_cost || 0);
+    const deliveryPackingRtoAdsUsd =
+      (usdCosts.delivery_cost || 0) + (usdCosts.packing_cost || 0) + (usdCosts.rto_cost || 0) + (usdCosts.ads_cost || 0);
 
     // As requested: Net Profit = Revenue − (Ads + Packing + Delivery)
     const netProfitInr = revenueInr - ((inrCosts.ads_cost || 0) + (inrCosts.packing_cost || 0) + (inrCosts.delivery_cost || 0));
@@ -1261,7 +1263,7 @@ export default function AdminPage() {
                   <th>Packing</th>
                   <th>Delivery</th>
                   <th>RTO</th>
-                  <th>Delivery + RTO + Ads</th>
+                  <th>Delivery + Packing + RTO + Ads</th>
                   <th>Net Profit</th>
                 </tr>
               </thead>
@@ -1273,7 +1275,7 @@ export default function AdminPage() {
                   <td>{fmt("INR", inrCosts.packing_cost || 0)}</td>
                   <td>{fmt("INR", inrCosts.delivery_cost || 0)}</td>
                   <td>{fmt("INR", inrCosts.rto_cost || 0)}</td>
-                  <td>{fmt("INR", deliveryRtoAdsInr)}</td>
+                  <td>{fmt("INR", deliveryPackingRtoAdsInr)}</td>
                   <td className="z-strong">{fmt("INR", netProfitInr)}</td>
                 </tr>
                 <tr>
@@ -1283,7 +1285,7 @@ export default function AdminPage() {
                   <td>{fmt("USD", usdCosts.packing_cost || 0)}</td>
                   <td>{fmt("USD", usdCosts.delivery_cost || 0)}</td>
                   <td>{fmt("USD", usdCosts.rto_cost || 0)}</td>
-                  <td>{fmt("USD", deliveryRtoAdsUsd)}</td>
+                  <td>{fmt("USD", deliveryPackingRtoAdsUsd)}</td>
                   <td className="z-strong">{fmt("USD", netProfitUsd)}</td>
                 </tr>
               </tbody>
