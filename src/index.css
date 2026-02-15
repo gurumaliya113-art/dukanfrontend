@@ -1831,12 +1831,40 @@ p {
   gap: 12px;
 }
 
+.admin-layout {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.admin-col {
+  min-width: 0;
+}
+
+.admin-dashboard {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 980px) {
+  .admin-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
 @media (max-width: 640px) {
   .admin-edit-grid {
     grid-template-columns: 1fr;
   }
   .admin-edit-images {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-dashboard {
+    grid-template-columns: 1fr;
   }
 }
 

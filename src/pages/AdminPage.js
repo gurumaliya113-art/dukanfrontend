@@ -145,6 +145,45 @@ export default function AdminPage() {
 
   const productCount = useMemo(() => products.length, [products]);
 
+  const orderStats = useMemo(() => {
+    const byStatus = {
+      pending: 0,
+      confirmed: 0,
+      shipped: 0,
+      delivered: 0,
+      cancelled: 0,
+    };
+
+    const amountByCurrency = {};
+    let lastCreatedAt = null;
+    let lastId = null;
+
+    (orders || []).forEach((o) => {
+      const s = String(o?.status || "").trim().toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(byStatus, s)) byStatus[s] += 1;
+
+      const cur = String(o?.currency || "").trim().toUpperCase();
+      const amt = Number(o?.amount);
+      if (cur && Number.isFinite(amt)) {
+        amountByCurrency[cur] = (amountByCurrency[cur] || 0) + amt;
+      }
+
+      const created = o?.created_at ? new Date(o.created_at).getTime() : 0;
+      const best = lastCreatedAt ? new Date(lastCreatedAt).getTime() : 0;
+      if (created && created > best) {
+        lastCreatedAt = o.created_at;
+        lastId = o.id;
+      }
+    });
+
+    return {
+      total: Array.isArray(orders) ? orders.length : 0,
+      byStatus,
+      amountByCurrency,
+      last: lastId ? { id: lastId, created_at: lastCreatedAt } : null,
+    };
+  }, [orders]);
+
   const getAccessToken = async () => {
     const { data } = await supabase.auth.getSession();
     return data?.session?.access_token || "";
@@ -847,9 +886,9 @@ export default function AdminPage() {
 
   return (
     <div className="section">
-      <div className="container" style={{ maxWidth: 980 }}>
+      <div className="container">
         <h1 className="section-title">Admin Panel</h1>
-        <p className="section-subtitle">Add products to your store</p>
+        <p className="section-subtitle">Orders, Products, Tracking & Dashboard</p>
 
         <div className="auth-card" style={{ marginTop: 16 }}>
           <div className="auth-head">
@@ -945,528 +984,15 @@ export default function AdminPage() {
       ) : null}
 
       {admin ? (
-        <>
-          <div style={{ marginTop: 18 }}>
-            <h2 className="section-title" style={{ fontSize: 28 }}>
-              Orders ({orders.length})
-            </h2>
-            <p className="section-subtitle">All incoming orders on this website</p>
-
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-              <button
-                className="secondary-btn"
-                type="button"
-                onClick={loadOrders}
-                disabled={isOrdersLoading || isTrackingBusy}
-              >
-                {isOrdersLoading ? "Loading…" : "Refresh Orders"}
-              </button>
-            </div>
-
-            {isOrdersLoading ? <p className="status">Loading…</p> : null}
-            {ordersError ? (
-              <p className="status" style={{ color: "crimson" }}>
-                {ordersError}
-              </p>
-            ) : null}
-            {selectedOrderId ? (
-              <p className="status" style={{ marginTop: 6 }}>
-                Selected for tracking: {selectedOrderId}
-              </p>
-            ) : null}
-            {!isOrdersLoading && orders.length === 0 ? <p className="status">No orders yet.</p> : null}
-
-            <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
-              {orders.map((o) => (
-                <div key={o.id} className="cart-card" style={{ padding: 16 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <div>
-                      <div className="summary-title">{o.product_name || "Order"}</div>
-                      <div className="summary-meta" style={{ marginTop: 6 }}>
-                        Order ID: {o.id}
-                      </div>
-                      <div className="summary-meta">Date: {formatDateTime(o.created_at)}</div>
-                      {o.size ? <div className="summary-meta">Size: {o.size}</div> : null}
-                      <div className="summary-meta">
-                        Amount: {o.amount} {o.currency || ""} · Payment: {o.payment_method}
-                      </div>
-                      <div className="summary-meta">Status: {o.status}</div>
-                      {o.return_status ? <div className="summary-meta">Return: {o.return_status}</div> : null}
-
-                      <div className="summary-meta" style={{ marginTop: 10, fontWeight: 600 }}>
-                        Customer Details
-                      </div>
-                      <div className="summary-meta">Name: {o.customer_name || "—"}</div>
-                      <div className="summary-meta">Phone: {o.phone || "—"}</div>
-                      <div className="summary-meta">Email: {o.email || "—"}</div>
-                      <div className="summary-meta">
-                        Address: {o.address || ""}{o.city ? `, ${o.city}` : ""}{o.state ? `, ${o.state}` : ""}{o.pincode ? ` - ${o.pincode}` : ""}
-                      </div>
-                    </div>
-
-                    <div style={{ minWidth: 220 }}>
-                      <label style={{ display: "grid", gap: 6 }}>
-                        Update Status
-                        <select
-                          value={o.status || "pending"}
-                          onChange={(e) => onUpdateOrderStatus(o.id, e.target.value)}
-                          disabled={isTrackingBusy}
-                          style={{ width: "100%" }}
-                        >
-                          <option value="pending">pending</option>
-                          <option value="confirmed">confirmed</option>
-                          <option value="shipped">shipped</option>
-                          <option value="delivered">delivered</option>
-                          <option value="cancelled">cancelled</option>
-                        </select>
-                      </label>
-
-                      <button
-                        className="secondary-btn"
-                        type="button"
-                        onClick={() => selectOrderForTracking(o.id)}
-                        disabled={isTrackingBusy}
-                        style={{ marginTop: 10, width: "100%" }}
-                      >
-                        Open in Tracking Panel
-                      </button>
-
-                      <button
-                        className="secondary-btn"
-                        type="button"
-                        onClick={() => onDeleteOrder(o.id)}
-                        disabled={isTrackingBusy || isOrderDeletingId === o.id}
-                        style={{ marginTop: 10, width: "100%" }}
-                      >
-                        {isOrderDeletingId === o.id ? "Deleting…" : "Delete Order"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, marginTop: 18 }}>
-            <label>
-              Category*
-              <select
-                name="category"
-                value={form.category}
-                onChange={onChange}
-                style={{ width: "100%" }}
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              Name*
-              <input
-                name="name"
-                value={form.name}
-                onChange={onChange}
-                style={{ width: "100%" }}
-              />
-            </label>
-
+        <div className="admin-layout">
+          <div className="admin-col">
             <div>
-              <div className="label">Available Sizes</div>
-              <div className="sizes">
-                {PRODUCT_SIZE_OPTIONS.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    className={form.sizes?.includes(s) ? "size-btn active" : "size-btn"}
-                    onClick={() => setForm((prev) => ({ ...prev, sizes: toggleSize(prev.sizes, s) }))}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
+              <h2 className="section-title" style={{ fontSize: 28 }}>
+                Orders ({orders.length})
+              </h2>
+              <p className="section-subtitle">All incoming orders on this website</p>
 
-            <label>
-              MRP INR (India) (optional)
-              <input
-                name="mrp_inr"
-                value={form.mrp_inr}
-                onChange={onChange}
-                type="number"
-                style={{ width: "100%" }}
-                placeholder="e.g. 1999"
-              />
-            </label>
-
-            <label>
-              MRP USD (USA) (optional)
-              <input
-                name="mrp_usd"
-                value={form.mrp_usd}
-                onChange={onChange}
-                type="number"
-                style={{ width: "100%" }}
-                placeholder="e.g. 49"
-              />
-            </label>
-
-            <div className="status">
-              Customer ko discount % automatically show hoga (MRP vs Price).
-            </div>
-
-            <label>
-              Price INR (India)*
-              <input
-                name="price_inr"
-                value={form.price_inr}
-                onChange={onChange}
-                type="number"
-                style={{ width: "100%" }}
-              />
-            </label>
-
-            <label>
-              Price USD (USA)*
-              <input
-                name="price_usd"
-                value={form.price_usd}
-                onChange={onChange}
-                type="number"
-                style={{ width: "100%" }}
-              />
-            </label>
-
-            <label>
-              Description
-              <textarea
-                name="description"
-                value={form.description}
-                onChange={onChange}
-                rows={3}
-                style={{ width: "100%" }}
-              />
-            </label>
-
-            <label>
-              Product Images (max 4)
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                multiple
-                onChange={(e) => setImages(Array.from(e.target.files || []))}
-              />
-            </label>
-
-            {images.length ? (
-              <div className="status">
-                Selected: {images.slice(0, 4).map((f) => f.name).join(", ")}
-              </div>
-            ) : null}
-
-            <button className="primary-btn" type="submit" disabled={isSaving}>
-              {isSaving ? "Saving..." : "Add Product"}
-            </button>
-          </form>
-
-          <div style={{ marginTop: 28 }}>
-            <h2 className="section-title" style={{ fontSize: 28 }}>
-              Products ({productCount})
-            </h2>
-
-            {isLoading ? <p className="status">Loading…</p> : null}
-
-            {!isLoading && products.length === 0 ? (
-              <p className="status">No products yet.</p>
-            ) : null}
-
-            <div className="admin-list" aria-label="All products">
-              {products.map((p) => (
-                <div key={p.id}>
-                  <div className="admin-item">
-                    <div className="admin-thumb">
-                      <img
-                        src={p.image1 || "https://via.placeholder.com/120"}
-                        alt={p.name}
-                      />
-                    </div>
-
-                    <div className="admin-meta">
-                      <div className="summary-title">{p.name}</div>
-                      <div className="summary-meta">
-                        INR: ₹{p.price_inr ?? p.price}
-                        {p.price_usd !== undefined && p.price_usd !== null && p.price_usd !== "" ? ` · USA: $${p.price_usd}` : ""}
-                      </div>
-                      <div className="summary-meta">
-                        Sizes: {Array.isArray(p.sizes) && p.sizes.length ? p.sizes.join(", ") : "—"}
-                      </div>
-                      <div className="summary-meta">ID: {p.id}</div>
-                    </div>
-
-                    <div className="admin-actions">
-                      {editingId === p.id ? (
-                        <>
-                          <button
-                            className="secondary-btn"
-                            type="button"
-                            onClick={() => onUpdate(p.id)}
-                            disabled={isUpdatingId === p.id}
-                          >
-                            {isUpdatingId === p.id ? "Saving…" : "Save"}
-                          </button>
-                          <button
-                            className="secondary-btn"
-                            type="button"
-                            onClick={onCancelEdit}
-                            disabled={isUpdatingId === p.id}
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <button
-                          className="secondary-btn"
-                          type="button"
-                          onClick={() => onStartEdit(p)}
-                        >
-                          Edit
-                        </button>
-                      )}
-
-                      <button
-                        className="secondary-btn"
-                        type="button"
-                        onClick={() => onDelete(p.id, p.name)}
-                        disabled={isDeletingId === p.id || editingId === p.id}
-                        style={{ marginLeft: 10 }}
-                      >
-                        {isDeletingId === p.id ? "Deleting…" : "Delete"}
-                      </button>
-                    </div>
-                  </div>
-
-                  {editingId === p.id ? (
-                    <div className="admin-edit" aria-label="Edit product">
-                      <div className="admin-edit-images" aria-label="Existing images">
-                        {[
-                          { slot: "image1", label: "Image 1" },
-                          { slot: "image2", label: "Image 2" },
-                          { slot: "image3", label: "Image 3" },
-                          { slot: "image4", label: "Image 4" },
-                        ].map(({ slot, label }, idx, list) => {
-                          const url = editImageUrls?.[slot] || "";
-                          const removed = !!editRemove?.[slot];
-                          const disableUrlTools = isUpdatingId === p.id || editImages.length > 0;
-                          return (
-                            <div key={slot} className="admin-edit-img-wrap">
-                              <div className={removed ? "admin-edit-img removed" : "admin-edit-img"}>
-                                {url ? <img src={url} alt="" /> : <div className="admin-edit-img-empty" />}
-                                {url || removed ? (
-                                  <button
-                                    type="button"
-                                    className="admin-img-btn"
-                                    onClick={() => onToggleRemoveImage(slot)}
-                                    disabled={isUpdatingId === p.id}
-                                  >
-                                    {removed ? "Undo" : "Remove"}
-                                  </button>
-                                ) : null}
-                              </div>
-
-                              <input
-                                className="admin-img-input"
-                                value={url}
-                                onChange={(e) => setEditImageUrl(slot, e.target.value)}
-                                placeholder={`${label} URL paste karo`}
-                                disabled={disableUrlTools}
-                              />
-
-                              <div className="admin-img-reorder" aria-label={`${label} reorder`}>
-                                <button
-                                  type="button"
-                                  className="admin-img-mini-btn"
-                                  onClick={() => swapImageSlots(slot, list[idx - 1]?.slot)}
-                                  disabled={disableUrlTools || idx === 0}
-                                >
-                                  Up
-                                </button>
-                                <button
-                                  type="button"
-                                  className="admin-img-mini-btn"
-                                  onClick={() => swapImageSlots(slot, list[idx + 1]?.slot)}
-                                  disabled={disableUrlTools || idx === list.length - 1}
-                                >
-                                  Down
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {editImages.length ? (
-                        <div className="status" style={{ marginBottom: 12 }}>
-                          Note: Replace Images selected hai — URL add/reorder disabled (upload ke baad slots 1-4 replace ho jayenge).
-                        </div>
-                      ) : null}
-
-                      <div style={{ marginBottom: 12 }}>
-                        <div className="label">Available Sizes</div>
-                        <div className="sizes">
-                          {PRODUCT_SIZE_OPTIONS.map((s) => (
-                            <button
-                              key={s}
-                              type="button"
-                              className={editForm.sizes?.includes(s) ? "size-btn active" : "size-btn"}
-                              onClick={() =>
-                                setEditForm((prev) => ({
-                                  ...prev,
-                                  sizes: toggleSize(prev?.sizes, s),
-                                }))
-                              }
-                              disabled={isUpdatingId === p.id}
-                            >
-                              {s}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="admin-edit-grid">
-                            <label>
-                              Category*
-                              <select
-                                name="category"
-                                value={editForm.category}
-                                onChange={onEditChange}
-                                disabled={isUpdatingId === p.id}
-                              >
-                                {CATEGORIES.map((c) => (
-                                  <option key={c.value} value={c.value}>
-                                    {c.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-
-                        <label>
-                          Name*
-                          <input
-                            name="name"
-                            value={editForm.name}
-                            onChange={onEditChange}
-                          />
-                        </label>
-
-                        <label>
-                          Price INR*
-                          <input
-                            name="price_inr"
-                            value={editForm.price_inr}
-                            onChange={onEditChange}
-                            type="number"
-                            disabled={isUpdatingId === p.id}
-                          />
-                        </label>
-
-                        <label>
-                          Price USD*
-                          <input
-                            name="price_usd"
-                            value={editForm.price_usd}
-                            onChange={onEditChange}
-                            type="number"
-                            disabled={isUpdatingId === p.id}
-                          />
-                        </label>
-
-                        <label>
-                          MRP INR
-                          <input
-                            name="mrp_inr"
-                            value={editForm.mrp_inr}
-                            onChange={onEditChange}
-                            type="number"
-                            disabled={isUpdatingId === p.id}
-                            placeholder="e.g. 1999"
-                          />
-                        </label>
-
-                        <label>
-                          MRP USD
-                          <input
-                            name="mrp_usd"
-                            value={editForm.mrp_usd}
-                            onChange={onEditChange}
-                            type="number"
-                            disabled={isUpdatingId === p.id}
-                            placeholder="e.g. 49"
-                          />
-                        </label>
-                      </div>
-
-                      <label>
-                        Description
-                        <textarea
-                          name="description"
-                          value={editForm.description}
-                          onChange={onEditChange}
-                          rows={3}
-                        />
-                      </label>
-
-                      <label>
-                        Replace Images (optional, max 4)
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg,image/webp"
-                          multiple
-                          onChange={(e) => setEditImages(Array.from(e.target.files || []))}
-                          disabled={isUpdatingId === p.id}
-                        />
-                      </label>
-
-                      {editImages.length ? (
-                        <div className="status">
-                          Selected: {editImages.slice(0, 4).map((f) => f.name).join(", ")}
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div id="order-tracking" style={{ marginTop: 28 }} ref={trackingSectionRef}>
-            <h2 className="section-title" style={{ fontSize: 28 }}>
-              Order Tracking
-            </h2>
-            <p className="section-subtitle">
-              Manual entry: estimated delivery, pickup, received locations, out for delivery
-            </p>
-
-            <div className="auth-card" style={{ marginTop: 12 }}>
-              <div style={{ display: "grid", gap: 10 }}>
-                <label>
-                  Select Order*
-                  <select
-                    value={selectedOrderId}
-                    onChange={(e) => selectOrderForTracking(e.target.value)}
-                    style={{ width: "100%" }}
-                  >
-                    <option value="">-- Select --</option>
-                    {orders.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.id} · {o.product_name || "Order"} · {o.customer_name || ""}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                 <button
                   className="secondary-btn"
                   type="button"
@@ -1477,171 +1003,751 @@ export default function AdminPage() {
                 </button>
               </div>
 
+              {isOrdersLoading ? <p className="status">Loading…</p> : null}
+              {ordersError ? (
+                <p className="status" style={{ color: "crimson" }}>
+                  {ordersError}
+                </p>
+              ) : null}
               {selectedOrderId ? (
-                <>
-                  <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
-                    <label>
-                      Estimated delivery (date & time)
-                      <input
-                        name="estimatedDeliveryAt"
-                        type="datetime-local"
-                        value={trackingForm.estimatedDeliveryAt}
-                        onChange={onTrackingChange}
-                        style={{ width: "100%" }}
-                      />
-                    </label>
+                <p className="status" style={{ marginTop: 6 }}>
+                  Selected for tracking: {selectedOrderId}
+                </p>
+              ) : null}
+              {!isOrdersLoading && orders.length === 0 ? <p className="status">No orders yet.</p> : null}
 
-                    <label>
-                      Picked up from
-                      <input
-                        name="pickedUpFrom"
-                        type="text"
-                        placeholder="e.g., Delhi"
-                        value={trackingForm.pickedUpFrom}
-                        onChange={onTrackingChange}
-                        style={{ width: "100%" }}
-                      />
-                    </label>
+              <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                {orders.map((o) => (
+                  <div key={o.id} className="cart-card" style={{ padding: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                      <div>
+                        <div className="summary-title">{o.product_name || "Order"}</div>
+                        <div className="summary-meta" style={{ marginTop: 6 }}>
+                          Order ID: {o.id}
+                        </div>
+                        <div className="summary-meta">Date: {formatDateTime(o.created_at)}</div>
+                        {o.size ? <div className="summary-meta">Size: {o.size}</div> : null}
+                        <div className="summary-meta">
+                          Amount: {o.amount} {o.currency || ""} · Payment: {o.payment_method}
+                        </div>
+                        <div className="summary-meta">Status: {o.status}</div>
+                        {o.return_status ? <div className="summary-meta">Return: {o.return_status}</div> : null}
 
-                    <label>
-                      Picked up at (date & time)
-                      <input
-                        name="pickedUpAt"
-                        type="datetime-local"
-                        value={trackingForm.pickedUpAt}
-                        onChange={onTrackingChange}
-                        style={{ width: "100%" }}
-                      />
-                    </label>
+                        <div className="summary-meta" style={{ marginTop: 10, fontWeight: 600 }}>
+                          Customer Details
+                        </div>
+                        <div className="summary-meta">Name: {o.customer_name || "—"}</div>
+                        <div className="summary-meta">Phone: {o.phone || "—"}</div>
+                        <div className="summary-meta">Email: {o.email || "—"}</div>
+                        <div className="summary-meta">
+                          Address: {o.address || ""}{o.city ? `, ${o.city}` : ""}{o.state ? `, ${o.state}` : ""}{o.pincode ? ` - ${o.pincode}` : ""}
+                        </div>
+                      </div>
 
-                    <label>
-                      Out for delivery (Yes/No)
-                      <select
-                        name="outForDelivery"
-                        value={trackingForm.outForDelivery}
-                        onChange={onTrackingChange}
-                        style={{ width: "100%" }}
-                      >
-                        <option value="no">No</option>
-                        <option value="yes">Yes</option>
-                      </select>
-                    </label>
+                      <div style={{ minWidth: 220 }}>
+                        <label style={{ display: "grid", gap: 6 }}>
+                          Update Status
+                          <select
+                            value={o.status || "pending"}
+                            onChange={(e) => onUpdateOrderStatus(o.id, e.target.value)}
+                            disabled={isTrackingBusy}
+                            style={{ width: "100%" }}
+                          >
+                            <option value="pending">pending</option>
+                            <option value="confirmed">confirmed</option>
+                            <option value="shipped">shipped</option>
+                            <option value="delivered">delivered</option>
+                            <option value="cancelled">cancelled</option>
+                          </select>
+                        </label>
 
-                    <label>
-                      Out for delivery at (date & time)
-                      <input
-                        name="outForDeliveryAt"
-                        type="datetime-local"
-                        value={trackingForm.outForDeliveryAt}
-                        onChange={onTrackingChange}
-                        style={{ width: "100%" }}
-                      />
-                    </label>
+                        <button
+                          className="secondary-btn"
+                          type="button"
+                          onClick={() => selectOrderForTracking(o.id)}
+                          disabled={isTrackingBusy}
+                          style={{ marginTop: 10, width: "100%" }}
+                        >
+                          Open in Tracking Panel
+                        </button>
 
-                    <label>
-                      Delivered at (date & time)
-                      <input
-                        name="deliveredAt"
-                        type="datetime-local"
-                        value={trackingForm.deliveredAt}
-                        onChange={onTrackingChange}
-                        style={{ width: "100%" }}
-                      />
-                    </label>
-
-                    <button
-                      className="primary-btn"
-                      type="button"
-                      onClick={onSaveTracking}
-                      disabled={isTrackingBusy}
-                    >
-                      {isTrackingBusy ? "Saving…" : "Save Tracking"}
-                    </button>
+                        <button
+                          className="secondary-btn"
+                          type="button"
+                          onClick={() => onDeleteOrder(o.id)}
+                          disabled={isTrackingBusy || isOrderDeletingId === o.id}
+                          style={{ marginTop: 10, width: "100%" }}
+                        >
+                          {isOrderDeletingId === o.id ? "Deleting…" : "Delete Order"}
+                        </button>
+                      </div>
+                    </div>
                   </div>
+                ))}
+              </div>
+            </div>
 
-                  <div style={{ marginTop: 16 }}>
-                    <div className="summary-title">Received at (multiple)</div>
-                    <div className="summary-meta">Add as many checkpoints as needed</div>
+            <div id="order-tracking" style={{ marginTop: 28 }} ref={trackingSectionRef}>
+              <h2 className="section-title" style={{ fontSize: 28 }}>
+                Order Tracking
+              </h2>
+              <p className="section-subtitle">
+                Manual entry: estimated delivery, pickup, received locations, out for delivery
+              </p>
 
-                    <div style={{ display: "grid", gap: 12, marginTop: 10 }}>
+              <div className="auth-card" style={{ marginTop: 12 }}>
+                <div style={{ display: "grid", gap: 10 }}>
+                  <label>
+                    Select Order*
+                    <select
+                      value={selectedOrderId}
+                      onChange={(e) => selectOrderForTracking(e.target.value)}
+                      style={{ width: "100%" }}
+                    >
+                      <option value="">-- Select --</option>
+                      {orders.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.id} · {o.product_name || "Order"} · {o.customer_name || ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <button
+                    className="secondary-btn"
+                    type="button"
+                    onClick={loadOrders}
+                    disabled={isOrdersLoading || isTrackingBusy}
+                  >
+                    {isOrdersLoading ? "Loading…" : "Refresh Orders"}
+                  </button>
+                </div>
+
+                {selectedOrderId ? (
+                  <>
+                    <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
                       <label>
-                        Received location*
+                        Estimated delivery (date & time)
                         <input
-                          type="text"
-                          placeholder="e.g., Gurgaon"
-                          value={receivedLocation}
-                          onChange={(e) => {
-                            setTrackingDirty(true);
-                            setReceivedLocation(e.target.value);
-                          }}
-                          style={{ width: "100%" }}
-                        />
-                      </label>
-
-                      <label>
-                        Date & time (optional)
-                        <input
+                          name="estimatedDeliveryAt"
                           type="datetime-local"
-                          value={receivedAt}
-                          onChange={(e) => {
-                            setTrackingDirty(true);
-                            setReceivedAt(e.target.value);
-                          }}
+                          value={trackingForm.estimatedDeliveryAt}
+                          onChange={onTrackingChange}
                           style={{ width: "100%" }}
                         />
                       </label>
 
                       <label>
-                        Note (optional)
+                        Picked up from
                         <input
+                          name="pickedUpFrom"
                           type="text"
-                          value={receivedNote}
-                          onChange={(e) => {
-                            setTrackingDirty(true);
-                            setReceivedNote(e.target.value);
-                          }}
+                          placeholder="e.g., Delhi"
+                          value={trackingForm.pickedUpFrom}
+                          onChange={onTrackingChange}
+                          style={{ width: "100%" }}
+                        />
+                      </label>
+
+                      <label>
+                        Picked up at (date & time)
+                        <input
+                          name="pickedUpAt"
+                          type="datetime-local"
+                          value={trackingForm.pickedUpAt}
+                          onChange={onTrackingChange}
+                          style={{ width: "100%" }}
+                        />
+                      </label>
+
+                      <label>
+                        Out for delivery (Yes/No)
+                        <select
+                          name="outForDelivery"
+                          value={trackingForm.outForDelivery}
+                          onChange={onTrackingChange}
+                          style={{ width: "100%" }}
+                        >
+                          <option value="no">No</option>
+                          <option value="yes">Yes</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        Out for delivery at (date & time)
+                        <input
+                          name="outForDeliveryAt"
+                          type="datetime-local"
+                          value={trackingForm.outForDeliveryAt}
+                          onChange={onTrackingChange}
+                          style={{ width: "100%" }}
+                        />
+                      </label>
+
+                      <label>
+                        Delivered at (date & time)
+                        <input
+                          name="deliveredAt"
+                          type="datetime-local"
+                          value={trackingForm.deliveredAt}
+                          onChange={onTrackingChange}
                           style={{ width: "100%" }}
                         />
                       </label>
 
                       <button
-                        className="secondary-btn"
+                        className="primary-btn"
                         type="button"
-                        onClick={onAddReceived}
+                        onClick={onSaveTracking}
                         disabled={isTrackingBusy}
                       >
-                        {isTrackingBusy ? "Adding…" : "Add Received Location"}
+                        {isTrackingBusy ? "Saving…" : "Save Tracking"}
                       </button>
                     </div>
 
-                    <div style={{ marginTop: 12 }}>
-                      {(() => {
-                        const o = orders.find((x) => String(x.id) === String(selectedOrderId));
-                        const received = Array.isArray(o?.tracking_received) ? o.tracking_received : [];
-                        if (!received.length) return <p className="status">No received updates yet.</p>;
-                        return (
-                          <div className="status" style={{ display: "grid", gap: 6 }}>
-                            {received.slice(0, 10).map((u) => (
-                              <div key={u.id}>
-                                - {u.location}
-                                {u.created_at ? ` (${new Date(u.created_at).toLocaleString()})` : ""}
-                                {u.note ? ` · ${u.note}` : ""}
-                              </div>
-                            ))}
-                          </div>
-                        );
-                      })()}
+                    <div style={{ marginTop: 16 }}>
+                      <div className="summary-title">Received at (multiple)</div>
+                      <div className="summary-meta">Add as many checkpoints as needed</div>
+
+                      <div style={{ display: "grid", gap: 12, marginTop: 10 }}>
+                        <label>
+                          Received location*
+                          <input
+                            type="text"
+                            placeholder="e.g., Gurgaon"
+                            value={receivedLocation}
+                            onChange={(e) => {
+                              setTrackingDirty(true);
+                              setReceivedLocation(e.target.value);
+                            }}
+                            style={{ width: "100%" }}
+                          />
+                        </label>
+
+                        <label>
+                          Date & time (optional)
+                          <input
+                            type="datetime-local"
+                            value={receivedAt}
+                            onChange={(e) => {
+                              setTrackingDirty(true);
+                              setReceivedAt(e.target.value);
+                            }}
+                            style={{ width: "100%" }}
+                          />
+                        </label>
+
+                        <label>
+                          Note (optional)
+                          <input
+                            type="text"
+                            value={receivedNote}
+                            onChange={(e) => {
+                              setTrackingDirty(true);
+                              setReceivedNote(e.target.value);
+                            }}
+                            style={{ width: "100%" }}
+                          />
+                        </label>
+
+                        <button
+                          className="secondary-btn"
+                          type="button"
+                          onClick={onAddReceived}
+                          disabled={isTrackingBusy}
+                        >
+                          {isTrackingBusy ? "Adding…" : "Add Received Location"}
+                        </button>
+                      </div>
+
+                      <div style={{ marginTop: 12 }}>
+                        {(() => {
+                          const o = orders.find((x) => String(x.id) === String(selectedOrderId));
+                          const received = Array.isArray(o?.tracking_received) ? o.tracking_received : [];
+                          if (!received.length) return <p className="status">No received updates yet.</p>;
+                          return (
+                            <div className="status" style={{ display: "grid", gap: 6 }}>
+                              {received.slice(0, 10).map((u) => (
+                                <div key={u.id}>
+                                  - {u.location}
+                                  {u.created_at ? ` (${new Date(u.created_at).toLocaleString()})` : ""}
+                                  {u.note ? ` · ${u.note}` : ""}
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </div>
-                  </div>
-                </>
-              ) : (
-                <p className="status" style={{ marginTop: 12 }}>
-                  Select an order to update tracking.
-                </p>
-              )}
+                  </>
+                ) : (
+                  <p className="status" style={{ marginTop: 12 }}>
+                    Select an order to update tracking.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
-        </>
+
+          <div className="admin-col">
+            <div>
+              <h2 className="section-title" style={{ fontSize: 28 }}>
+                Business Dashboard
+              </h2>
+              <p className="section-subtitle">Quick summary (based on loaded orders)</p>
+
+              <div className="admin-dashboard">
+                <div className="cart-card" style={{ padding: 16 }}>
+                  <div className="summary-title">Total Orders</div>
+                  <div className="summary-meta" style={{ marginTop: 6, fontSize: 18, fontWeight: 700 }}>
+                    {orderStats.total}
+                  </div>
+                </div>
+
+                <div className="cart-card" style={{ padding: 16 }}>
+                  <div className="summary-title">By Status</div>
+                  <div className="summary-meta" style={{ marginTop: 6, display: "grid", gap: 4 }}>
+                    <div>pending: {orderStats.byStatus.pending}</div>
+                    <div>confirmed: {orderStats.byStatus.confirmed}</div>
+                    <div>shipped: {orderStats.byStatus.shipped}</div>
+                    <div>delivered: {orderStats.byStatus.delivered}</div>
+                    <div>cancelled: {orderStats.byStatus.cancelled}</div>
+                  </div>
+                </div>
+
+                <div className="cart-card" style={{ padding: 16 }}>
+                  <div className="summary-title">Revenue (sum)</div>
+                  <div className="summary-meta" style={{ marginTop: 6, display: "grid", gap: 4 }}>
+                    {Object.keys(orderStats.amountByCurrency || {}).length ? (
+                      Object.entries(orderStats.amountByCurrency).map(([cur, amt]) => (
+                        <div key={cur}>
+                          {cur}: {Math.round((amt + Number.EPSILON) * 100) / 100}
+                        </div>
+                      ))
+                    ) : (
+                      <div>—</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="cart-card" style={{ padding: 16 }}>
+                  <div className="summary-title">Latest Order</div>
+                  <div className="summary-meta" style={{ marginTop: 6 }}>
+                    {orderStats.last ? (
+                      <>
+                        <div>#{orderStats.last.id}</div>
+                        <div>{formatDateTime(orderStats.last.created_at)}</div>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ marginTop: 18 }}>
+              <h2 className="section-title" style={{ fontSize: 28 }}>
+                Add Products
+              </h2>
+              <p className="section-subtitle">Add a new product to your store</p>
+
+              <form onSubmit={onSubmit} style={{ display: "grid", gap: 12, marginTop: 12 }}>
+                <label>
+                  Category*
+                  <select
+                    name="category"
+                    value={form.category}
+                    onChange={onChange}
+                    style={{ width: "100%" }}
+                  >
+                    {CATEGORIES.map((c) => (
+                      <option key={c.value} value={c.value}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Name*
+                  <input
+                    name="name"
+                    value={form.name}
+                    onChange={onChange}
+                    style={{ width: "100%" }}
+                  />
+                </label>
+
+                <div>
+                  <div className="label">Available Sizes</div>
+                  <div className="sizes">
+                    {PRODUCT_SIZE_OPTIONS.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        className={form.sizes?.includes(s) ? "size-btn active" : "size-btn"}
+                        onClick={() => setForm((prev) => ({ ...prev, sizes: toggleSize(prev.sizes, s) }))}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label>
+                  MRP INR (India) (optional)
+                  <input
+                    name="mrp_inr"
+                    value={form.mrp_inr}
+                    onChange={onChange}
+                    type="number"
+                    style={{ width: "100%" }}
+                    placeholder="e.g. 1999"
+                  />
+                </label>
+
+                <label>
+                  MRP USD (USA) (optional)
+                  <input
+                    name="mrp_usd"
+                    value={form.mrp_usd}
+                    onChange={onChange}
+                    type="number"
+                    style={{ width: "100%" }}
+                    placeholder="e.g. 49"
+                  />
+                </label>
+
+                <div className="status">
+                  Customer ko discount % automatically show hoga (MRP vs Price).
+                </div>
+
+                <label>
+                  Price INR (India)*
+                  <input
+                    name="price_inr"
+                    value={form.price_inr}
+                    onChange={onChange}
+                    type="number"
+                    style={{ width: "100%" }}
+                  />
+                </label>
+
+                <label>
+                  Price USD (USA)*
+                  <input
+                    name="price_usd"
+                    value={form.price_usd}
+                    onChange={onChange}
+                    type="number"
+                    style={{ width: "100%" }}
+                  />
+                </label>
+
+                <label>
+                  Description
+                  <textarea
+                    name="description"
+                    value={form.description}
+                    onChange={onChange}
+                    rows={3}
+                    style={{ width: "100%" }}
+                  />
+                </label>
+
+                <label>
+                  Product Images (max 4)
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    multiple
+                    onChange={(e) => setImages(Array.from(e.target.files || []))}
+                  />
+                </label>
+
+                {images.length ? (
+                  <div className="status">
+                    Selected: {images.slice(0, 4).map((f) => f.name).join(", ")}
+                  </div>
+                ) : null}
+
+                <button className="primary-btn" type="submit" disabled={isSaving}>
+                  {isSaving ? "Saving..." : "Add Product"}
+                </button>
+              </form>
+            </div>
+
+            <div style={{ marginTop: 28 }}>
+              <h2 className="section-title" style={{ fontSize: 28 }}>
+                Products ({productCount})
+              </h2>
+
+              {isLoading ? <p className="status">Loading…</p> : null}
+
+              {!isLoading && products.length === 0 ? (
+                <p className="status">No products yet.</p>
+              ) : null}
+
+              <div className="admin-list" aria-label="All products">
+                {products.map((p) => (
+                  <div key={p.id}>
+                    <div className="admin-item">
+                      <div className="admin-thumb">
+                        <img
+                          src={p.image1 || "https://via.placeholder.com/120"}
+                          alt={p.name}
+                        />
+                      </div>
+
+                      <div className="admin-meta">
+                        <div className="summary-title">{p.name}</div>
+                        <div className="summary-meta">
+                          INR: ₹{p.price_inr ?? p.price}
+                          {p.price_usd !== undefined && p.price_usd !== null && p.price_usd !== "" ? ` · USA: $${p.price_usd}` : ""}
+                        </div>
+                        <div className="summary-meta">
+                          Sizes: {Array.isArray(p.sizes) && p.sizes.length ? p.sizes.join(", ") : "—"}
+                        </div>
+                        <div className="summary-meta">ID: {p.id}</div>
+                      </div>
+
+                      <div className="admin-actions">
+                        {editingId === p.id ? (
+                          <>
+                            <button
+                              className="secondary-btn"
+                              type="button"
+                              onClick={() => onUpdate(p.id)}
+                              disabled={isUpdatingId === p.id}
+                            >
+                              {isUpdatingId === p.id ? "Saving…" : "Save"}
+                            </button>
+                            <button
+                              className="secondary-btn"
+                              type="button"
+                              onClick={onCancelEdit}
+                              disabled={isUpdatingId === p.id}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            className="secondary-btn"
+                            type="button"
+                            onClick={() => onStartEdit(p)}
+                          >
+                            Edit
+                          </button>
+                        )}
+
+                        <button
+                          className="secondary-btn"
+                          type="button"
+                          onClick={() => onDelete(p.id, p.name)}
+                          disabled={isDeletingId === p.id || editingId === p.id}
+                          style={{ marginLeft: 10 }}
+                        >
+                          {isDeletingId === p.id ? "Deleting…" : "Delete"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {editingId === p.id ? (
+                      <div className="admin-edit" aria-label="Edit product">
+                        <div className="admin-edit-images" aria-label="Existing images">
+                          {[
+                            { slot: "image1", label: "Image 1" },
+                            { slot: "image2", label: "Image 2" },
+                            { slot: "image3", label: "Image 3" },
+                            { slot: "image4", label: "Image 4" },
+                          ].map(({ slot, label }, idx, list) => {
+                            const url = editImageUrls?.[slot] || "";
+                            const removed = !!editRemove?.[slot];
+                            const disableUrlTools = isUpdatingId === p.id || editImages.length > 0;
+                            return (
+                              <div key={slot} className="admin-edit-img-wrap">
+                                <div className={removed ? "admin-edit-img removed" : "admin-edit-img"}>
+                                  {url ? <img src={url} alt="" /> : <div className="admin-edit-img-empty" />}
+                                  {url || removed ? (
+                                    <button
+                                      type="button"
+                                      className="admin-img-btn"
+                                      onClick={() => onToggleRemoveImage(slot)}
+                                      disabled={isUpdatingId === p.id}
+                                    >
+                                      {removed ? "Undo" : "Remove"}
+                                    </button>
+                                  ) : null}
+                                </div>
+
+                                <input
+                                  className="admin-img-input"
+                                  value={url}
+                                  onChange={(e) => setEditImageUrl(slot, e.target.value)}
+                                  placeholder={`${label} URL paste karo`}
+                                  disabled={disableUrlTools}
+                                />
+
+                                <div className="admin-img-reorder" aria-label={`${label} reorder`}>
+                                  <button
+                                    type="button"
+                                    className="admin-img-mini-btn"
+                                    onClick={() => swapImageSlots(slot, list[idx - 1]?.slot)}
+                                    disabled={disableUrlTools || idx === 0}
+                                  >
+                                    Up
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="admin-img-mini-btn"
+                                    onClick={() => swapImageSlots(slot, list[idx + 1]?.slot)}
+                                    disabled={disableUrlTools || idx === list.length - 1}
+                                  >
+                                    Down
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {editImages.length ? (
+                          <div className="status" style={{ marginBottom: 12 }}>
+                            Note: Replace Images selected hai — URL add/reorder disabled (upload ke baad slots 1-4 replace ho jayenge).
+                          </div>
+                        ) : null}
+
+                        <div style={{ marginBottom: 12 }}>
+                          <div className="label">Available Sizes</div>
+                          <div className="sizes">
+                            {PRODUCT_SIZE_OPTIONS.map((s) => (
+                              <button
+                                key={s}
+                                type="button"
+                                className={editForm.sizes?.includes(s) ? "size-btn active" : "size-btn"}
+                                onClick={() =>
+                                  setEditForm((prev) => ({
+                                    ...prev,
+                                    sizes: toggleSize(prev?.sizes, s),
+                                  }))
+                                }
+                                disabled={isUpdatingId === p.id}
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="admin-edit-grid">
+                          <label>
+                            Category*
+                            <select
+                              name="category"
+                              value={editForm.category}
+                              onChange={onEditChange}
+                              disabled={isUpdatingId === p.id}
+                            >
+                              {CATEGORIES.map((c) => (
+                                <option key={c.value} value={c.value}>
+                                  {c.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label>
+                            Name*
+                            <input
+                              name="name"
+                              value={editForm.name}
+                              onChange={onEditChange}
+                            />
+                          </label>
+
+                          <label>
+                            Price INR*
+                            <input
+                              name="price_inr"
+                              value={editForm.price_inr}
+                              onChange={onEditChange}
+                              type="number"
+                              disabled={isUpdatingId === p.id}
+                            />
+                          </label>
+
+                          <label>
+                            Price USD*
+                            <input
+                              name="price_usd"
+                              value={editForm.price_usd}
+                              onChange={onEditChange}
+                              type="number"
+                              disabled={isUpdatingId === p.id}
+                            />
+                          </label>
+
+                          <label>
+                            MRP INR
+                            <input
+                              name="mrp_inr"
+                              value={editForm.mrp_inr}
+                              onChange={onEditChange}
+                              type="number"
+                              disabled={isUpdatingId === p.id}
+                              placeholder="e.g. 1999"
+                            />
+                          </label>
+
+                          <label>
+                            MRP USD
+                            <input
+                              name="mrp_usd"
+                              value={editForm.mrp_usd}
+                              onChange={onEditChange}
+                              type="number"
+                              disabled={isUpdatingId === p.id}
+                              placeholder="e.g. 49"
+                            />
+                          </label>
+                        </div>
+
+                        <label>
+                          Description
+                          <textarea
+                            name="description"
+                            value={editForm.description}
+                            onChange={onEditChange}
+                            rows={3}
+                          />
+                        </label>
+
+                        <label>
+                          Replace Images (optional, max 4)
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            multiple
+                            onChange={(e) => setEditImages(Array.from(e.target.files || []))}
+                            disabled={isUpdatingId === p.id}
+                          />
+                        </label>
+
+                        {editImages.length ? (
+                          <div className="status">
+                            Selected: {editImages.slice(0, 4).map((f) => f.name).join(", ")}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       </div>
