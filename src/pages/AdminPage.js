@@ -144,6 +144,9 @@ export default function AdminPage() {
   const [isOrderDeletingId, setIsOrderDeletingId] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
   const [orderCostModal, setOrderCostModal] = useState(null);
+  const [orderRtoModal, setOrderRtoModal] = useState(null);
+  const [rtoCostDraft, setRtoCostDraft] = useState("");
+  const [isRtoSaving, setIsRtoSaving] = useState(false);
   const [orderCostDraft, setOrderCostDraft] = useState({
     delivery_cost: "",
     packing_cost: "",
@@ -173,6 +176,7 @@ export default function AdminPage() {
       shipped: 0,
       delivered: 0,
       cancelled: 0,
+      rto: 0,
     };
 
     const amountByCurrency = {};
@@ -184,9 +188,11 @@ export default function AdminPage() {
       const s = String(o?.status || "").trim().toLowerCase();
       if (Object.prototype.hasOwnProperty.call(byStatus, s)) byStatus[s] += 1;
 
+      const isRto = s === "rto";
+
       const cur = String(o?.currency || "").trim().toUpperCase();
       const amt = Number(o?.amount);
-      if (cur && Number.isFinite(amt)) {
+      if (cur && Number.isFinite(amt) && !isRto) {
         amountByCurrency[cur] = (amountByCurrency[cur] || 0) + amt;
       }
 
@@ -205,9 +211,12 @@ export default function AdminPage() {
         const ads = Number(o?.ads_cost);
         const rto = Number(o?.rto_cost);
 
-        if (Number.isFinite(delivery)) costsByCurrency[cur].delivery_cost += delivery;
+        // For RTO orders: remove revenue/ads/delivery from dashboard; keep packing + RTO.
+        if (!isRto) {
+          if (Number.isFinite(delivery)) costsByCurrency[cur].delivery_cost += delivery;
+          if (Number.isFinite(ads)) costsByCurrency[cur].ads_cost += ads;
+        }
         if (Number.isFinite(packing)) costsByCurrency[cur].packing_cost += packing;
-        if (Number.isFinite(ads)) costsByCurrency[cur].ads_cost += ads;
         if (Number.isFinite(rto)) costsByCurrency[cur].rto_cost += rto;
       }
 
@@ -275,6 +284,7 @@ export default function AdminPage() {
     if (s === "shipped" || s === "in progress" || s === "processing") return "z-badge-pill z-pill-blue";
     if (s === "pending") return "z-badge-pill z-pill-yellow";
     if (s === "confirmed") return "z-badge-pill z-pill-purple";
+    if (s === "rto") return "z-badge-pill z-pill-red";
     if (s === "cancelled" || s === "failed" || s === "rejected") return "z-badge-pill z-pill-red";
     return "z-badge-pill z-pill-purple";
   };
@@ -286,6 +296,7 @@ export default function AdminPage() {
       "Ready to Ship": "confirmed",
       Shipped: "shipped",
       Cancelled: "cancelled",
+      RTO: "rto",
     };
     const target = map[ordersTab] || "pending";
     return (orders || []).filter((o) => String(o?.status || "").trim().toLowerCase() === target);
@@ -310,6 +321,7 @@ export default function AdminPage() {
       "Ready to Ship": "confirmed",
       Shipped: "shipped",
       Cancelled: "cancelled",
+      RTO: "rto",
     };
     const result = {};
     Object.keys(mapping).forEach((tab) => {
@@ -389,6 +401,7 @@ export default function AdminPage() {
         shipped: 2,
         delivered: 3,
         cancelled: 4,
+        rto: 5,
       };
 
       const sorted = [...list].sort((a, b) => {
@@ -683,6 +696,78 @@ export default function AdminPage() {
     const n = Number(value);
     if (!Number.isFinite(n)) return null;
     return n;
+  };
+
+  const openRtoModal = (order) => {
+    if (!order?.id) return;
+    setOrderRtoModal(order);
+    setRtoCostDraft(order?.rto_cost ?? "");
+  };
+
+  const onConfirmMarkAsRto = async () => {
+    setStatus({ type: "", message: "" });
+    if (!admin) {
+      setStatus({ type: "error", message: "Please login as admin first" });
+      return;
+    }
+
+    const orderId = orderRtoModal?.id;
+    if (!orderId) return;
+
+    const rtoCost = parseCostInputOrNull(rtoCostDraft);
+    if (rtoCost !== null && rtoCost < 0) {
+      setStatus({ type: "error", message: "RTO cost cannot be negative" });
+      return;
+    }
+
+    setIsRtoSaving(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+
+      const sRes = await apiFetch(`/admin/orders/${encodeURIComponent(orderId)}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: "rto" }),
+      });
+      const sPayload = await sRes.json().catch(() => ({}));
+      if (!sRes.ok) {
+        const msg = sPayload?.error || sPayload?.message || `Failed (${sRes.status})`;
+        throw new Error(msg);
+      }
+
+      const cRes = await apiFetch(`/admin/orders/${encodeURIComponent(orderId)}/costs`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ rtoCost }),
+      });
+      const updated = await cRes.json().catch(() => ({}));
+      if (!cRes.ok) {
+        const msg = updated?.error || updated?.message || `Failed (${cRes.status})`;
+        throw new Error(msg);
+      }
+
+      setOrders((prev) => prev.map((o) => (String(o.id) === String(orderId) ? updated : o)));
+      if (String(orderDetails?.id) === String(orderId)) setOrderDetails(updated);
+      if (String(orderCostModal?.id) === String(orderId)) setOrderCostModal(updated);
+
+      setOrderRtoModal(null);
+      setRtoCostDraft("");
+
+      const warning = updated?.warning ? ` ${updated.warning}` : "";
+      setStatus({ type: "success", message: `Marked as RTO.${warning}` });
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: "error", message: e.message || "Failed to mark as RTO" });
+    } finally {
+      setIsRtoSaving(false);
+    }
   };
 
   const onSaveOrderCosts = async () => {
@@ -1357,7 +1442,7 @@ export default function AdminPage() {
 
         <div className="z-card" style={{ marginBottom: 16 }}>
           <div className="z-tabs">
-            {["On Hold", "Pending", "Ready to Ship", "Shipped", "Cancelled"].map((t) => (
+            {["On Hold", "Pending", "Ready to Ship", "Shipped", "Cancelled", "RTO"].map((t) => (
               <button
                 key={t}
                 type="button"
@@ -1453,6 +1538,7 @@ export default function AdminPage() {
                             <option value="shipped">shipped</option>
                             <option value="delivered">delivered</option>
                             <option value="cancelled">cancelled</option>
+                            <option value="rto">rto</option>
                           </select>
                         </div>
                       </td>
@@ -1478,6 +1564,19 @@ export default function AdminPage() {
                           >
                             Add/Edit Costs
                           </button>
+
+                          {String(o?.status || "").trim().toLowerCase() === "confirmed" ? (
+                            <button
+                              className="z-btn secondary"
+                              type="button"
+                              onClick={() => openRtoModal(o)}
+                              disabled={isTrackingBusy}
+                              style={{ background: "#111", borderColor: "#111", color: "#fff" }}
+                            >
+                              Mark as RTO
+                            </button>
+                          ) : null}
+
                           <button
                             className="z-btn secondary"
                             type="button"
@@ -1533,9 +1632,21 @@ export default function AdminPage() {
                       Date: {formatOrderDate(orderDetails?.created_at) || "—"} · Time: {formatOrderTime(orderDetails?.created_at) || "—"}
                     </div>
                   </div>
-                  <button className="z-btn secondary" type="button" onClick={() => setOrderDetails(null)}>
-                    Close
-                  </button>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                    {String(orderDetails?.status || "").trim().toLowerCase() === "confirmed" ? (
+                      <button
+                        className="z-btn secondary"
+                        type="button"
+                        onClick={() => openRtoModal(orderDetails)}
+                        style={{ background: "#111", borderColor: "#111", color: "#fff" }}
+                      >
+                        Mark as RTO
+                      </button>
+                    ) : null}
+                    <button className="z-btn secondary" type="button" onClick={() => setOrderDetails(null)}>
+                      Close
+                    </button>
+                  </div>
                 </div>
 
                 <div className="z-modal-grid">
@@ -1670,6 +1781,55 @@ export default function AdminPage() {
                         disabled={isOrderCostSaving}
                       >
                         Clear
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {orderRtoModal ? (
+            <div
+              className="z-modal-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Mark order ${orderRtoModal?.id} as RTO`}
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setOrderRtoModal(null);
+              }}
+            >
+              <div className="z-modal">
+                <div className="z-modal-head">
+                  <div>
+                    <div className="z-strong" style={{ fontSize: 18 }}>
+                      Mark as RTO · Order #{orderRtoModal?.id}
+                    </div>
+                    <div className="z-subtitle">Enter total RTO cost and confirm</div>
+                  </div>
+                  <button className="z-btn secondary" type="button" onClick={() => setOrderRtoModal(null)} disabled={isRtoSaving}>
+                    Close
+                  </button>
+                </div>
+
+                <div className="z-modal-grid">
+                  <div className="z-modal-field" style={{ gridColumn: "1 / -1" }}>
+                    <div className="z-modal-label">Total RTO Cost</div>
+                    <input
+                      className="z-input"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={rtoCostDraft}
+                      onChange={(e) => setRtoCostDraft(e.target.value)}
+                      placeholder="0"
+                    />
+                    <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <button className="z-btn primary" type="button" onClick={onConfirmMarkAsRto} disabled={isRtoSaving}>
+                        {isRtoSaving ? "Saving…" : "Confirm RTO"}
+                      </button>
+                      <button className="z-btn secondary" type="button" onClick={() => setOrderRtoModal(null)} disabled={isRtoSaving}>
+                        Cancel
                       </button>
                     </div>
                   </div>
