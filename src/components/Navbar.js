@@ -11,6 +11,8 @@ export default function Navbar() {
   const { region, setRegion } = useRegion();
   const location = useLocation();
 
+  const isAdminRoute = location.pathname === "/admin" || location.pathname.startsWith("/admin/");
+
   const isHome = location.pathname === "/";
   const homeTop = isHome && !scrolled;
 
@@ -35,7 +37,11 @@ export default function Navbar() {
       .filter(Boolean)
       .join(" ")}
     >
-      <div className="promo-bar" role="region" aria-label="Announcement">
+      <div
+        className={["promo-bar", isAdminRoute ? "admin-paused" : ""].filter(Boolean).join(" ")}
+        role="region"
+        aria-label="Announcement"
+      >
         <div className="container promo-inner">
           <div
             className="promo-marquee"

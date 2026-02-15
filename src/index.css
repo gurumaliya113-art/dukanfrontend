@@ -105,6 +105,22 @@ p {
   animation: promoMarquee 18s linear infinite;
 }
 
+/* Pause the top promo marquee inside admin panel. */
+.promo-bar.admin-paused .promo-marquee {
+  overflow: visible;
+}
+
+.promo-bar.admin-paused .promo-track {
+  animation: none;
+  transform: none;
+  width: 100%;
+  justify-content: center;
+}
+
+.promo-bar.admin-paused .promo-content:nth-child(2) {
+  display: none;
+}
+
 .promo-content {
   display: inline-flex;
   align-items: center;
@@ -2128,14 +2144,16 @@ textarea {
 }
 
 .zubilo-admin .z-logo-name {
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.04em;
+  font-weight: 900;
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  color: #facc15;
 }
 
 .zubilo-admin .z-logo-tag {
-  font-size: 11px;
-  color: rgba(209, 213, 219, 0.8);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: rgba(209, 213, 219, 0.75);
 }
 
 .zubilo-admin .z-nav {
