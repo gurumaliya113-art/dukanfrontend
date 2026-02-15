@@ -55,6 +55,7 @@ export default function ProductPage() {
   const [size, setSize] = useState("");
   const [status, setStatus] = useState("");
   const [activeImage, setActiveImage] = useState("");
+  const [activeMediaType, setActiveMediaType] = useState("image"); // image | video
   const navigate = useNavigate();
   const cart = useCart();
   const { region } = useRegion();
@@ -74,6 +75,9 @@ export default function ProductPage() {
       .then((data) => {
         setProduct(data);
         setError("");
+
+        const hasVideo = !!String(data?.video_url || "").trim();
+        setActiveMediaType(hasVideo ? "video" : "image");
 
         const first =
           data?.image1 || data?.image2 || data?.image3 || data?.image4 || "";
@@ -138,7 +142,9 @@ export default function ProductPage() {
   }
 
   const images = [product.image1, product.image2, product.image3, product.image4].filter(Boolean);
+  const videoUrl = String(product?.video_url || "").trim();
   const mainImage = activeImage || images[0] || "https://via.placeholder.com/900";
+  const isShowingVideo = activeMediaType === "video" && !!videoUrl;
   const unit = getProductUnitPrice(product, region);
   const unitMrp = getProductUnitMrp(product, region);
 
@@ -165,17 +171,42 @@ export default function ProductPage() {
         <div className="detail-grid">
           <div>
             <div className="detail-image">
-              <img src={mainImage} alt={product.name} />
+              {isShowingVideo ? (
+                <video
+                  src={videoUrl}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              ) : (
+                <img src={mainImage} alt={product.name} />
+              )}
             </div>
 
-            {images.length > 1 ? (
-              <div className="thumbs" aria-label="Product images">
+            {videoUrl || images.length > 1 ? (
+              <div className="thumbs" aria-label="Product media">
+                {videoUrl ? (
+                  <button
+                    type="button"
+                    className={isShowingVideo ? "thumb active" : "thumb"}
+                    onClick={() => setActiveMediaType("video")}
+                    aria-label="View video"
+                    style={{ display: "grid", placeItems: "center" }}
+                  >
+                    <span style={{ fontSize: 12, fontWeight: 700 }}>Video</span>
+                  </button>
+                ) : null}
+
                 {images.map((src) => (
                   <button
                     key={src}
                     type="button"
-                    className={src === mainImage ? "thumb active" : "thumb"}
-                    onClick={() => setActiveImage(src)}
+                    className={activeMediaType === "image" && src === mainImage ? "thumb active" : "thumb"}
+                    onClick={() => {
+                      setActiveMediaType("image");
+                      setActiveImage(src);
+                    }}
                     aria-label="View image"
                   >
                     <img src={src} alt="" />

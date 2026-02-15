@@ -73,6 +73,7 @@ const initialForm = {
   price_usd: "",
   cost_inr: "",
   cost_usd: "",
+  video_url: "",
   description: "",
   sizes: [],
 };
@@ -116,6 +117,7 @@ export default function AdminPage() {
 
   const [form, setForm] = useState(initialForm);
   const [images, setImages] = useState([]);
+  const [videoFile, setVideoFile] = useState(null);
   const [status, setStatus] = useState({ type: "", message: "" });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -135,6 +137,7 @@ export default function AdminPage() {
   const [editingProductId, setEditingProductId] = useState(null);
   const [editForm, setEditForm] = useState(initialForm);
   const [editImages, setEditImages] = useState([]);
+  const [editVideoFile, setEditVideoFile] = useState(null);
   const [isUpdatingId, setIsUpdatingId] = useState(null);
   const [editImageUrls, setEditImageUrls] = useState(EMPTY_EDIT_IMAGE_URLS);
 
@@ -873,10 +876,12 @@ export default function AdminPage() {
       body.append("price_usd", form.price_usd);
       body.append("cost_inr", form.cost_inr);
       body.append("cost_usd", form.cost_usd);
+      body.append("video_url", form.video_url);
       body.append("price", form.price_inr);
       body.append("description", form.description);
       body.append("sizes", JSON.stringify(form.sizes || []));
       images.slice(0, 4).forEach((file) => body.append("images", file));
+      if (videoFile) body.append("video", videoFile);
 
       const res = await apiFetch("/products", {
         method: "POST",
@@ -894,6 +899,7 @@ export default function AdminPage() {
       setStatus({ type: "success", message: `Added: ${data.name}${warning}` });
       setForm(initialForm);
       setImages([]);
+      setVideoFile(null);
       loadProducts();
     } catch (err) {
       console.error(err);
@@ -954,10 +960,12 @@ export default function AdminPage() {
       price_usd: p.price_usd ?? "",
       cost_inr: p.cost_inr ?? "",
       cost_usd: p.cost_usd ?? "",
+      video_url: p.video_url ?? "",
       description: p.description || "",
       sizes: normalizeSizes(p.sizes),
     });
     setEditImages([]);
+    setEditVideoFile(null);
 
     setEditImageUrls({
       image1: p.image1 || "",
@@ -994,6 +1002,7 @@ export default function AdminPage() {
     setEditingProductId(null);
     setEditForm(initialForm);
     setEditImages([]);
+    setEditVideoFile(null);
     setEditImageUrls(EMPTY_EDIT_IMAGE_URLS);
   };
 
@@ -1049,6 +1058,7 @@ export default function AdminPage() {
       body.append("price_usd", editForm.price_usd);
       body.append("cost_inr", editForm.cost_inr);
       body.append("cost_usd", editForm.cost_usd);
+      body.append("video_url", editForm.video_url);
       body.append("price", editForm.price_inr);
       body.append("description", editForm.description);
       body.append("sizes", JSON.stringify(editForm.sizes || []));
@@ -1060,6 +1070,7 @@ export default function AdminPage() {
       body.append("image4", editImageUrls.image4 || "");
 
       editImages.slice(0, 4).forEach((file) => body.append("images", file));
+      if (editVideoFile) body.append("video", editVideoFile);
 
       const res = await apiFetch(`/products/${encodeURIComponent(editingProductId)}`, {
         method: "PUT",
@@ -2071,6 +2082,11 @@ export default function AdminPage() {
             <textarea className="z-input" name="description" value={form.description} onChange={onChange} rows={4} />
           </label>
 
+          <label className="z-label">
+            Video URL (optional)
+            <input className="z-input" name="video_url" value={form.video_url} onChange={onChange} placeholder="https://..." />
+          </label>
+
           <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginBottom: 0 }}>
             <label className="z-label">
               Price INR*
@@ -2130,13 +2146,33 @@ export default function AdminPage() {
             />
           </label>
 
-          {images.length ? <div className="z-subtitle">Selected: {images.slice(0, 4).map((f) => f.name).join(", ")}</div> : null}
+          <label className="z-label">
+            Product Video (optional)
+            <input
+              className="z-input"
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime"
+              onChange={(e) => setVideoFile((e.target.files && e.target.files[0]) || null)}
+            />
+          </label>
+
+          {images.length ? <div className="z-subtitle">Selected images: {images.slice(0, 4).map((f) => f.name).join(", ")}</div> : null}
+          {videoFile ? <div className="z-subtitle">Selected video: {videoFile.name}</div> : null}
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="z-btn primary" type="submit" disabled={isSaving}>
               {isSaving ? "Saving…" : "Add Product"}
             </button>
-            <button className="z-btn secondary" type="button" onClick={() => setForm(initialForm)} disabled={isSaving}>
+            <button
+              className="z-btn secondary"
+              type="button"
+              onClick={() => {
+                setForm(initialForm);
+                setImages([]);
+                setVideoFile(null);
+              }}
+              disabled={isSaving}
+            >
               Cancel
             </button>
           </div>
@@ -2356,6 +2392,23 @@ export default function AdminPage() {
               Description
               <textarea className="z-input" name="description" value={editForm.description} onChange={onEditChange} rows={4} />
             </label>
+
+            <label className="z-label">
+              Video URL (optional)
+              <input className="z-input" name="video_url" value={editForm.video_url} onChange={onEditChange} placeholder="https://..." />
+            </label>
+
+            <label className="z-label">
+              Replace Video (optional)
+              <input
+                className="z-input"
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime"
+                onChange={(e) => setEditVideoFile((e.target.files && e.target.files[0]) || null)}
+              />
+            </label>
+
+            {editVideoFile ? <div className="z-subtitle">Selected video: {editVideoFile.name}</div> : editForm.video_url ? <div className="z-subtitle">Current video: {editForm.video_url}</div> : null}
 
             <div>
               <div className="z-strong" style={{ marginBottom: 8 }}>
