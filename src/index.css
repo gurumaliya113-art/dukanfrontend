@@ -1246,9 +1246,10 @@ p {
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  border: 1px solid var(--border);
+  border: 1px solid #dc2626;
   padding: 6px 10px;
-  background: rgba(250, 250, 250, 0.65);
+  background: #dc2626;
+  color: #ffffff;
 }
 
 .detail-desc {

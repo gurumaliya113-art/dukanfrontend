@@ -39,6 +39,28 @@ const toggleSize = (list, size) => {
   return [...set].sort((a, b) => (weight.get(a) ?? 999) - (weight.get(b) ?? 999));
 };
 
+const normalizeSizes = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // ignore
+    }
+    return trimmed
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  return [];
+};
+
 const initialForm = {
   name: "",
   category: "new",
@@ -100,6 +122,11 @@ export default function AdminPage() {
   const [isDeletingId, setIsDeletingId] = useState(null);
   const [inventoryEdits, setInventoryEdits] = useState({});
   const [inventorySavingId, setInventorySavingId] = useState(null);
+
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [editForm, setEditForm] = useState(initialForm);
+  const [editImages, setEditImages] = useState([]);
+  const [isUpdatingId, setIsUpdatingId] = useState(null);
 
   const [orders, setOrders] = useState([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
@@ -587,6 +614,11 @@ export default function AdminPage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const onEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+  };
+
   const onSubmit = async (e) => {
     e.preventDefault();
     setStatus({ type: "", message: "" });
@@ -679,6 +711,111 @@ export default function AdminPage() {
       setStatus({ type: "error", message: e.message });
     } finally {
       setIsDeletingId(null);
+    }
+  };
+
+  const onStartEditProduct = (p) => {
+    setStatus({ type: "", message: "" });
+    setEditingProductId(p.id);
+    setEditForm({
+      name: p.name || "",
+      category: normalizeCategory(p.category),
+      sku: p.sku ?? "",
+      barcode: p.barcode ?? "",
+      quantity: p.quantity ?? "",
+      mrp_inr: p.mrp_inr ?? "",
+      mrp_usd: p.mrp_usd ?? "",
+      price_inr: p.price_inr ?? p.price ?? "",
+      price_usd: p.price_usd ?? "",
+      description: p.description || "",
+      sizes: normalizeSizes(p.sizes),
+    });
+    setEditImages([]);
+  };
+
+  const moveEditImage = (index, delta) => {
+    setEditImages((prev) => {
+      if (!Array.isArray(prev) || prev.length < 2) return prev;
+      const from = index;
+      const to = index + delta;
+      if (from < 0 || from >= prev.length) return prev;
+      if (to < 0 || to >= prev.length) return prev;
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      return next;
+    });
+  };
+
+  const removeEditImage = (index) => {
+    setEditImages((prev) => {
+      if (!Array.isArray(prev) || index < 0 || index >= prev.length) return prev;
+      const next = [...prev];
+      next.splice(index, 1);
+      return next;
+    });
+  };
+
+  const onCancelEditProduct = () => {
+    setEditingProductId(null);
+    setEditForm(initialForm);
+    setEditImages([]);
+  };
+
+  const onSaveEditProduct = async () => {
+    setStatus({ type: "", message: "" });
+    if (!admin) {
+      setStatus({ type: "error", message: "Please login as admin first" });
+      return;
+    }
+    if (!editingProductId) return;
+
+    if (!editForm.name.trim() || editForm.price_inr === "" || editForm.price_usd === "") {
+      setStatus({ type: "error", message: "Name + Price INR + Price USD required" });
+      return;
+    }
+
+    setIsUpdatingId(editingProductId);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+
+      const body = new FormData();
+      body.append("category", normalizeCategory(editForm.category));
+      body.append("name", editForm.name);
+      body.append("sku", editForm.sku);
+      body.append("barcode", editForm.barcode);
+      body.append("quantity", editForm.quantity);
+      body.append("mrp_inr", editForm.mrp_inr);
+      body.append("mrp_usd", editForm.mrp_usd);
+      body.append("price_inr", editForm.price_inr);
+      body.append("price_usd", editForm.price_usd);
+      body.append("price", editForm.price_inr);
+      body.append("description", editForm.description);
+      body.append("sizes", JSON.stringify(editForm.sizes || []));
+      editImages.slice(0, 4).forEach((file) => body.append("images", file));
+
+      const res = await apiFetch(`/products/${encodeURIComponent(editingProductId)}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}` },
+        body,
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data?.error || data?.message || `Update failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      setProducts((prev) => prev.map((p) => (p.id === editingProductId ? data : p)));
+      const warning = data?.warning ? `\n${data.warning}` : "";
+      setStatus({ type: "success", message: `Updated: ${data.name}${warning}` });
+      onCancelEditProduct();
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: "error", message: e.message || "Failed to update product" });
+    } finally {
+      setIsUpdatingId(null);
     }
   };
 
@@ -1506,6 +1643,14 @@ export default function AdminPage() {
                   <td>
                     <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                       <button
+                        className="z-btn secondary"
+                        type="button"
+                        onClick={() => onStartEditProduct(p)}
+                        disabled={isDeletingId === p.id || inventorySavingId === p.id || isUpdatingId === p.id}
+                      >
+                        Edit
+                      </button>
+                      <button
                         className="z-btn primary"
                         type="button"
                         onClick={() => onSaveInventoryQuantity(p.id)}
@@ -1529,6 +1674,160 @@ export default function AdminPage() {
           </table>
         </div>
       </div>
+
+      {editingProductId ? (
+        <div className="z-card" style={{ marginTop: 16 }}>
+          <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+            Edit Product #{editingProductId}
+          </div>
+
+          <div style={{ display: "grid", gap: 12 }}>
+            <label className="z-label">
+              Category*
+              <select className="z-input" name="category" value={editForm.category} onChange={onEditChange}>
+                {CATEGORIES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="z-label">
+              Name*
+              <input className="z-input" name="name" value={editForm.name} onChange={onEditChange} />
+            </label>
+
+            <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginBottom: 0 }}>
+              <label className="z-label">
+                SKU
+                <input className="z-input" name="sku" value={editForm.sku} onChange={onEditChange} />
+              </label>
+              <label className="z-label">
+                Barcode
+                <input className="z-input" name="barcode" value={editForm.barcode} onChange={onEditChange} />
+              </label>
+              <label className="z-label">
+                Quantity
+                <input className="z-input" name="quantity" type="number" min={0} step={1} value={editForm.quantity} onChange={onEditChange} />
+              </label>
+            </div>
+
+            <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginBottom: 0 }}>
+              <label className="z-label">
+                Price INR*
+                <input className="z-input" name="price_inr" type="number" value={editForm.price_inr} onChange={onEditChange} />
+              </label>
+              <label className="z-label">
+                Price USD*
+                <input className="z-input" name="price_usd" type="number" value={editForm.price_usd} onChange={onEditChange} />
+              </label>
+            </div>
+
+            <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginBottom: 0 }}>
+              <label className="z-label">
+                MRP INR
+                <input className="z-input" name="mrp_inr" type="number" value={editForm.mrp_inr} onChange={onEditChange} />
+              </label>
+              <label className="z-label">
+                MRP USD
+                <input className="z-input" name="mrp_usd" type="number" value={editForm.mrp_usd} onChange={onEditChange} />
+              </label>
+            </div>
+
+            <label className="z-label">
+              Description
+              <textarea className="z-input" name="description" value={editForm.description} onChange={onEditChange} rows={4} />
+            </label>
+
+            <div>
+              <div className="z-strong" style={{ marginBottom: 8 }}>
+                Sizes
+              </div>
+              <div className="sizes">
+                {PRODUCT_SIZE_OPTIONS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    className={editForm.sizes?.includes(s) ? "size-btn active" : "size-btn"}
+                    onClick={() => setEditForm((prev) => ({ ...prev, sizes: toggleSize(prev.sizes, s) }))}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label className="z-label">
+              Replace Images (optional, max 4)
+              <input
+                className="z-input"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                multiple
+                onChange={(e) => setEditImages(Array.from(e.target.files || []))}
+              />
+            </label>
+            {editImages.length ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                <div className="z-subtitle">Selected (top → bottom = Image 1 → 4):</div>
+                {editImages.slice(0, 4).map((f, idx) => (
+                  <div
+                    key={`${f.name}-${idx}`}
+                    style={{
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                      padding: "10px 12px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 10,
+                      background: "#fff",
+                    }}
+                  >
+                    <div className="z-strong" style={{ width: 26 }}>
+                      {idx + 1}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 220 }}>
+                      {f.name}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        type="button"
+                        className="z-btn secondary"
+                        onClick={() => moveEditImage(idx, -1)}
+                        disabled={idx === 0}
+                      >
+                        Up
+                      </button>
+                      <button
+                        type="button"
+                        className="z-btn secondary"
+                        onClick={() => moveEditImage(idx, 1)}
+                        disabled={idx === Math.min(editImages.length, 4) - 1}
+                      >
+                        Down
+                      </button>
+                      <button type="button" className="z-btn secondary" onClick={() => removeEditImage(idx)}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button className="z-btn primary" type="button" onClick={onSaveEditProduct} disabled={isUpdatingId === editingProductId}>
+                {isUpdatingId === editingProductId ? "Saving…" : "Save Changes"}
+              </button>
+              <button className="z-btn secondary" type="button" onClick={onCancelEditProduct} disabled={isUpdatingId === editingProductId}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 
