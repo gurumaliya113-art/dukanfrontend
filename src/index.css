@@ -2272,6 +2272,59 @@ textarea {
   padding: 18px;
 }
 
+.zubilo-admin .z-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(10, 10, 10, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.zubilo-admin .z-modal {
+  width: min(720px, 100%);
+  max-height: min(80vh, 720px);
+  overflow: auto;
+  background: var(--z-card);
+  border: 1px solid var(--z-border);
+  padding: 18px;
+}
+
+.zubilo-admin .z-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.zubilo-admin .z-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+@media (min-width: 768px) {
+  .zubilo-admin .z-modal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.zubilo-admin .z-modal-field {
+  border: 1px solid var(--z-border);
+  padding: 12px;
+}
+
+.zubilo-admin .z-modal-label {
+  font-size: 12px;
+  color: var(--z-muted);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
 .zubilo-admin .z-stat {
   display: flex;
   justify-content: space-between;

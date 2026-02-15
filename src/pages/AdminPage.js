@@ -140,6 +140,7 @@ export default function AdminPage() {
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
   const [isOrderDeletingId, setIsOrderDeletingId] = useState(null);
+  const [orderDetails, setOrderDetails] = useState(null);
   const [selectedOrderId, setSelectedOrderId] = useState("");
   const [trackingForm, setTrackingForm] = useState({
     estimatedDeliveryAt: "",
@@ -206,6 +207,33 @@ export default function AdminPage() {
     } catch {
       // ignore
     }
+  };
+
+  const formatOrderDate = (value) => {
+    try {
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return "";
+      return d.toLocaleDateString();
+    } catch {
+      return "";
+    }
+  };
+
+  const formatOrderTime = (value) => {
+    try {
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return "";
+      return d.toLocaleTimeString();
+    } catch {
+      return "";
+    }
+  };
+
+  const formatOrderAddress = (o) => {
+    const parts = [o?.address, o?.city, o?.state, o?.pincode]
+      .map((x) => (x === undefined || x === null ? "" : String(x).trim()))
+      .filter(Boolean);
+    return parts.length ? parts.join(", ") : "—";
   };
 
   const statusPillClass = (status) => {
@@ -1255,6 +1283,14 @@ export default function AdminPage() {
                           <button
                             className="z-btn secondary"
                             type="button"
+                            onClick={() => setOrderDetails(o)}
+                            disabled={isTrackingBusy}
+                          >
+                            Details
+                          </button>
+                          <button
+                            className="z-btn secondary"
+                            type="button"
                             onClick={() => selectOrderForTracking(o.id)}
                             disabled={isTrackingBusy}
                           >
@@ -1276,6 +1312,67 @@ export default function AdminPage() {
               </table>
             </div>
           )}
+
+          {orderDetails ? (
+            <div
+              className="z-modal-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Order ${orderDetails?.id} details`}
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setOrderDetails(null);
+              }}
+            >
+              <div className="z-modal">
+                <div className="z-modal-head">
+                  <div>
+                    <div className="z-strong" style={{ fontSize: 18 }}>
+                      Order #{orderDetails?.id}
+                    </div>
+                    <div className="z-subtitle">
+                      Date: {formatOrderDate(orderDetails?.created_at) || "—"} · Time: {formatOrderTime(orderDetails?.created_at) || "—"}
+                    </div>
+                  </div>
+                  <button className="z-btn secondary" type="button" onClick={() => setOrderDetails(null)}>
+                    Close
+                  </button>
+                </div>
+
+                <div className="z-modal-grid">
+                  <div className="z-modal-field">
+                    <div className="z-modal-label">Name</div>
+                    <div className="z-strong">{orderDetails?.customer_name || "—"}</div>
+                  </div>
+                  <div className="z-modal-field">
+                    <div className="z-modal-label">Payment Method</div>
+                    <div className="z-strong">{orderDetails?.payment_method || "—"}</div>
+                  </div>
+
+                  <div className="z-modal-field" style={{ gridColumn: "1 / -1" }}>
+                    <div className="z-modal-label">Product</div>
+                    <div className="z-strong">{orderDetails?.product_name || "—"}</div>
+                  </div>
+
+                  <div className="z-modal-field">
+                    <div className="z-modal-label">Size</div>
+                    <div className="z-strong">{orderDetails?.size || "—"}</div>
+                  </div>
+                  <div className="z-modal-field">
+                    <div className="z-modal-label">Mobile</div>
+                    <div className="z-strong">{orderDetails?.phone || "—"}</div>
+                  </div>
+                  <div className="z-modal-field">
+                    <div className="z-modal-label">Email</div>
+                    <div className="z-strong">{orderDetails?.email || "—"}</div>
+                  </div>
+                  <div className="z-modal-field" style={{ gridColumn: "1 / -1" }}>
+                    <div className="z-modal-label">Address</div>
+                    <div className="z-strong">{formatOrderAddress(orderDetails)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     );
