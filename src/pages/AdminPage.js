@@ -75,6 +75,13 @@ const initialForm = {
   sizes: [],
 };
 
+const EMPTY_EDIT_IMAGE_URLS = {
+  image1: "",
+  image2: "",
+  image3: "",
+  image4: "",
+};
+
 const toDateTimeLocalValue = (iso) => {
   if (!iso) return "";
   try {
@@ -127,6 +134,7 @@ export default function AdminPage() {
   const [editForm, setEditForm] = useState(initialForm);
   const [editImages, setEditImages] = useState([]);
   const [isUpdatingId, setIsUpdatingId] = useState(null);
+  const [editImageUrls, setEditImageUrls] = useState(EMPTY_EDIT_IMAGE_URLS);
 
   const [orders, setOrders] = useState([]);
   const [isOrdersLoading, setIsOrdersLoading] = useState(false);
@@ -731,6 +739,13 @@ export default function AdminPage() {
       sizes: normalizeSizes(p.sizes),
     });
     setEditImages([]);
+
+    setEditImageUrls({
+      image1: p.image1 || "",
+      image2: p.image2 || "",
+      image3: p.image3 || "",
+      image4: p.image4 || "",
+    });
   };
 
   const moveEditImage = (index, delta) => {
@@ -760,6 +775,29 @@ export default function AdminPage() {
     setEditingProductId(null);
     setEditForm(initialForm);
     setEditImages([]);
+    setEditImageUrls(EMPTY_EDIT_IMAGE_URLS);
+  };
+
+  const moveExistingImageSlot = (fromIdx, delta) => {
+    const slots = ["image1", "image2", "image3", "image4"];
+    const toIdx = fromIdx + delta;
+    if (fromIdx < 0 || fromIdx >= slots.length) return;
+    if (toIdx < 0 || toIdx >= slots.length) return;
+    const a = slots[fromIdx];
+    const b = slots[toIdx];
+    setEditImageUrls((prev) => {
+      const next = { ...prev };
+      const t = next[a];
+      next[a] = next[b];
+      next[b] = t;
+      return next;
+    });
+  };
+
+  const clearExistingImageSlot = (idx) => {
+    const slots = ["image1", "image2", "image3", "image4"];
+    const key = slots[idx];
+    setEditImageUrls((prev) => ({ ...prev, [key]: "" }));
   };
 
   const onSaveEditProduct = async () => {
@@ -793,6 +831,13 @@ export default function AdminPage() {
       body.append("price", editForm.price_inr);
       body.append("description", editForm.description);
       body.append("sizes", JSON.stringify(editForm.sizes || []));
+
+      // Allow reordering existing images even when no new files are uploaded.
+      body.append("image1", editImageUrls.image1 || "");
+      body.append("image2", editImageUrls.image2 || "");
+      body.append("image3", editImageUrls.image3 || "");
+      body.append("image4", editImageUrls.image4 || "");
+
       editImages.slice(0, 4).forEach((file) => body.append("images", file));
 
       const res = await apiFetch(`/products/${encodeURIComponent(editingProductId)}`, {
@@ -1755,6 +1800,81 @@ export default function AdminPage() {
                     {s}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="z-strong" style={{ marginBottom: 8 }}>
+                Existing Images (rearrange)
+              </div>
+              <div className="z-subtitle" style={{ marginBottom: 10 }}>
+                Up/Down controls change Image 1→4 order.
+              </div>
+
+              <div style={{ display: "grid", gap: 10 }}>
+                {["image1", "image2", "image3", "image4"].map((slot, idx, list) => {
+                  const url = editImageUrls?.[slot] || "";
+                  return (
+                    <div
+                      key={slot}
+                      style={{
+                        display: "flex",
+                        gap: 12,
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        padding: "10px 12px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: 10,
+                        background: "#fff",
+                      }}
+                    >
+                      <div className="z-strong" style={{ width: 70 }}>
+                        Image {idx + 1}
+                      </div>
+
+                      <div
+                        style={{
+                          width: 56,
+                          height: 56,
+                          borderRadius: 10,
+                          overflow: "hidden",
+                          border: "1px solid #e5e7eb",
+                          background: "#f3f4f6",
+                        }}
+                      >
+                        {url ? (
+                          <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : null}
+                      </div>
+
+                      <div style={{ flex: 1, minWidth: 220, color: url ? "#111827" : "#6b7280" }}>
+                        {url ? url : "(empty)"}
+                      </div>
+
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          type="button"
+                          className="z-btn secondary"
+                          onClick={() => moveExistingImageSlot(idx, -1)}
+                          disabled={idx === 0}
+                        >
+                          Up
+                        </button>
+                        <button
+                          type="button"
+                          className="z-btn secondary"
+                          onClick={() => moveExistingImageSlot(idx, 1)}
+                          disabled={idx === list.length - 1}
+                        >
+                          Down
+                        </button>
+                        <button type="button" className="z-btn secondary" onClick={() => clearExistingImageSlot(idx)}>
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
