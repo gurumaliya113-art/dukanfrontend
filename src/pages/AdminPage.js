@@ -143,6 +143,7 @@ export default function AdminPage() {
   const [ordersError, setOrdersError] = useState("");
   const [isOrderDeletingId, setIsOrderDeletingId] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
+  const [orderCostModal, setOrderCostModal] = useState(null);
   const [orderCostDraft, setOrderCostDraft] = useState({
     delivery_cost: "",
     packing_cost: "",
@@ -691,7 +692,7 @@ export default function AdminPage() {
       return;
     }
 
-    const orderId = orderDetails?.id;
+    const orderId = orderCostModal?.id || orderDetails?.id;
     if (!orderId) return;
 
     const deliveryCost = parseCostInputOrNull(orderCostDraft.delivery_cost);
@@ -733,7 +734,8 @@ export default function AdminPage() {
       }
 
       setOrders((prev) => prev.map((o) => (String(o.id) === String(orderId) ? payload : o)));
-      setOrderDetails(payload);
+      if (String(orderDetails?.id) === String(orderId)) setOrderDetails(payload);
+      if (String(orderCostModal?.id) === String(orderId)) setOrderCostModal(payload);
 
       const warning = payload?.warning ? ` ${payload.warning}` : "";
       setStatus({ type: "success", message: `Order costs saved.${warning}` });
@@ -1459,16 +1461,26 @@ export default function AdminPage() {
                       <td>
                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                           <button
-                            className="z-btn secondary"
+                            className="z-btn primary"
                             type="button"
                             onClick={() => {
-                              setOrderDetails(o);
+                              setOrderCostModal(o);
                               setOrderCostDraft({
                                 delivery_cost: o?.delivery_cost ?? "",
                                 packing_cost: o?.packing_cost ?? "",
                                 ads_cost: o?.ads_cost ?? "",
                                 rto_cost: o?.rto_cost ?? "",
                               });
+                            }}
+                            disabled={isTrackingBusy}
+                          >
+                            Add/Edit Costs
+                          </button>
+                          <button
+                            className="z-btn secondary"
+                            type="button"
+                            onClick={() => {
+                              setOrderDetails(o);
                             }}
                             disabled={isTrackingBusy}
                           >
@@ -1555,9 +1567,48 @@ export default function AdminPage() {
                     <div className="z-modal-label">Address</div>
                     <div className="z-strong">{formatOrderAddress(orderDetails)}</div>
                   </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {orderCostModal ? (
+            <div
+              className="z-modal-overlay"
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Edit costs for order ${orderCostModal?.id}`}
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setOrderCostModal(null);
+              }}
+            >
+              <div className="z-modal">
+                <div className="z-modal-head">
+                  <div>
+                    <div className="z-strong" style={{ fontSize: 18 }}>
+                      Costs · Order #{orderCostModal?.id}
+                    </div>
+                    <div className="z-subtitle">Add / edit delivery, packing, ads, RTO</div>
+                  </div>
+                  <button className="z-btn secondary" type="button" onClick={() => setOrderCostModal(null)} disabled={isOrderCostSaving}>
+                    Close
+                  </button>
+                </div>
+
+                <div className="z-modal-grid">
+                  <div className="z-modal-field">
+                    <div className="z-modal-label">Customer</div>
+                    <div className="z-strong">{orderCostModal?.customer_name || "—"}</div>
+                  </div>
+                  <div className="z-modal-field">
+                    <div className="z-modal-label">Amount</div>
+                    <div className="z-strong">
+                      {orderCostModal?.currency || ""} {orderCostModal?.amount ?? "—"}
+                    </div>
+                  </div>
 
                   <div className="z-modal-field" style={{ gridColumn: "1 / -1" }}>
-                    <div className="z-modal-label">Manual Costs (admin entry)</div>
+                    <div className="z-modal-label">Costs</div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
                       <label className="z-label" style={{ margin: 0 }}>
                         Delivery Cost
@@ -1604,9 +1655,19 @@ export default function AdminPage() {
                         />
                       </label>
                     </div>
-                    <div style={{ marginTop: 10 }}>
+                    <div style={{ marginTop: 10, display: "flex", gap: 10, flexWrap: "wrap" }}>
                       <button className="z-btn primary" type="button" onClick={onSaveOrderCosts} disabled={isOrderCostSaving}>
                         {isOrderCostSaving ? "Saving…" : "Save Costs"}
+                      </button>
+                      <button
+                        className="z-btn secondary"
+                        type="button"
+                        onClick={() => {
+                          setOrderCostDraft({ delivery_cost: "", packing_cost: "", ads_cost: "", rto_cost: "" });
+                        }}
+                        disabled={isOrderCostSaving}
+                      >
+                        Clear
                       </button>
                     </div>
                   </div>
