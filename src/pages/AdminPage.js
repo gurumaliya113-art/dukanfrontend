@@ -963,33 +963,6 @@ export default function AdminPage() {
           </button>
         </div>
 
-        <div className="z-banner warn">
-          <img
-            className="z-banner-img"
-            alt=""
-            src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=120&q=60"
-          />
-          <div>
-            <div className="z-strong">Label download failed?</div>
-            <div className="z-subtitle">We will notify you once it's ready for download.</div>
-            <div className="z-subtitle">Don't worry! Your orders will not be blocked or lose visibility.</div>
-          </div>
-        </div>
-
-        <div className="z-banner info">
-          <img
-            className="z-banner-img"
-            alt=""
-            src="https://images.unsplash.com/photo-1582719478185-2f1f78c1b1f6?auto=format&fit=crop&w=120&q=60"
-          />
-          <div>
-            <div className="z-strong">Packaging policy</div>
-            <div className="z-subtitle">
-              As per policy, sellers must use transparent barcoded packaging.
-            </div>
-          </div>
-        </div>
-
         <div className="z-card" style={{ marginBottom: 16 }}>
           <div className="z-tabs">
             {["On Hold", "Pending", "Ready to Ship", "Shipped", "Cancelled"].map((t) => (
