@@ -184,6 +184,20 @@ export default function AdminPage() {
     };
   }, [orders]);
 
+  const [activePanel, setActivePanel] = useState("dashboard");
+  const [navOpen, setNavOpen] = useState({ orders: true, products: true });
+
+  const openPanel = (panel) => {
+    setActivePanel(panel);
+    setTimeout(() => {
+      try {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      } catch {
+        // ignore
+      }
+    }, 0);
+  };
+
   const getAccessToken = async () => {
     const { data } = await supabase.auth.getSession();
     return data?.session?.access_token || "";
@@ -336,6 +350,8 @@ export default function AdminPage() {
     const next = String(orderId || "");
     setTrackingDirty(false);
     setSelectedOrderId(next);
+    setNavOpen((prev) => ({ ...prev, orders: true }));
+    setActivePanel("tracking");
 
     try {
       // Native anchor navigation as a fallback.
@@ -881,6 +897,7 @@ export default function AdminPage() {
     await supabase.auth.signOut();
     setAdmin(null);
     setProducts([]);
+    setActivePanel("dashboard");
     setStatus({ type: "success", message: "Logged out" });
   };
 
@@ -984,9 +1001,91 @@ export default function AdminPage() {
       ) : null}
 
       {admin ? (
-        <div className="admin-layout">
-          <div className="admin-col">
-            <div>
+        <div className="admin-shell">
+          <aside className="admin-sidebar" aria-label="Admin menu">
+            <div className="summary-title">Business</div>
+            <div className="summary-meta" style={{ marginTop: 6 }}>
+              {admin?.email ? admin.email : ""}
+            </div>
+
+            <div className="admin-nav">
+              <button
+                type="button"
+                className={activePanel === "dashboard" ? "admin-nav-btn active" : "admin-nav-btn"}
+                onClick={() => openPanel("dashboard")}
+              >
+                Home / Dashboard
+              </button>
+
+              <div className="admin-nav-group">
+                <div className="admin-nav-group-head">
+                  <button
+                    type="button"
+                    className={navOpen.orders ? "admin-nav-btn active" : "admin-nav-btn"}
+                    onClick={() => setNavOpen((p) => ({ ...p, orders: !p.orders }))}
+                  >
+                    Orders
+                  </button>
+                  <div className="summary-meta">{navOpen.orders ? "-" : "+"}</div>
+                </div>
+
+                {navOpen.orders ? (
+                  <div className="admin-nav-sub">
+                    <button
+                      type="button"
+                      className={activePanel === "orders" ? "admin-nav-btn active" : "admin-nav-btn"}
+                      onClick={() => openPanel("orders")}
+                    >
+                      All Orders
+                    </button>
+                    <button
+                      type="button"
+                      className={activePanel === "tracking" ? "admin-nav-btn active" : "admin-nav-btn"}
+                      onClick={() => openPanel("tracking")}
+                    >
+                      Tracking
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="admin-nav-group">
+                <div className="admin-nav-group-head">
+                  <button
+                    type="button"
+                    className={navOpen.products ? "admin-nav-btn active" : "admin-nav-btn"}
+                    onClick={() => setNavOpen((p) => ({ ...p, products: !p.products }))}
+                  >
+                    Products
+                  </button>
+                  <div className="summary-meta">{navOpen.products ? "-" : "+"}</div>
+                </div>
+
+                {navOpen.products ? (
+                  <div className="admin-nav-sub">
+                    <button
+                      type="button"
+                      className={activePanel === "addProduct" ? "admin-nav-btn active" : "admin-nav-btn"}
+                      onClick={() => openPanel("addProduct")}
+                    >
+                      Add Product
+                    </button>
+                    <button
+                      type="button"
+                      className={activePanel === "products" ? "admin-nav-btn active" : "admin-nav-btn"}
+                      onClick={() => openPanel("products")}
+                    >
+                      All Products
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </aside>
+
+          <div className="admin-main">
+            {activePanel === "orders" ? (
+              <div>
               <h2 className="section-title" style={{ fontSize: 28 }}>
                 Orders ({orders.length})
               </h2>
@@ -1087,7 +1186,10 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div id="order-tracking" style={{ marginTop: 28 }} ref={trackingSectionRef}>
+            ) : null}
+
+            {activePanel === "tracking" ? (
+            <div id="order-tracking" style={{ marginTop: 0 }} ref={trackingSectionRef}>
               <h2 className="section-title" style={{ fontSize: 28 }}>
                 Order Tracking
               </h2>
@@ -1287,9 +1389,9 @@ export default function AdminPage() {
                 )}
               </div>
             </div>
-          </div>
+            ) : null}
 
-          <div className="admin-col">
+            {activePanel === "dashboard" ? (
             <div>
               <h2 className="section-title" style={{ fontSize: 28 }}>
                 Business Dashboard
@@ -1345,8 +1447,10 @@ export default function AdminPage() {
                 </div>
               </div>
             </div>
+            ) : null}
 
-            <div style={{ marginTop: 18 }}>
+            {activePanel === "addProduct" ? (
+            <div>
               <h2 className="section-title" style={{ fontSize: 28 }}>
                 Add Products
               </h2>
@@ -1477,8 +1581,10 @@ export default function AdminPage() {
                 </button>
               </form>
             </div>
+            ) : null}
 
-            <div style={{ marginTop: 28 }}>
+            {activePanel === "products" ? (
+            <div>
               <h2 className="section-title" style={{ fontSize: 28 }}>
                 Products ({productCount})
               </h2>
@@ -1746,6 +1852,7 @@ export default function AdminPage() {
                 ))}
               </div>
             </div>
+            ) : null}
           </div>
         </div>
       ) : null}
