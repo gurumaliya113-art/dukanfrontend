@@ -71,6 +71,8 @@ const initialForm = {
   mrp_usd: "",
   price_inr: "",
   price_usd: "",
+  cost_inr: "",
+  cost_usd: "",
   description: "",
   sizes: [],
 };
@@ -141,6 +143,13 @@ export default function AdminPage() {
   const [ordersError, setOrdersError] = useState("");
   const [isOrderDeletingId, setIsOrderDeletingId] = useState(null);
   const [orderDetails, setOrderDetails] = useState(null);
+  const [orderCostDraft, setOrderCostDraft] = useState({
+    delivery_cost: "",
+    packing_cost: "",
+    ads_cost: "",
+    rto_cost: "",
+  });
+  const [isOrderCostSaving, setIsOrderCostSaving] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState("");
   const [trackingForm, setTrackingForm] = useState({
     estimatedDeliveryAt: "",
@@ -166,6 +175,7 @@ export default function AdminPage() {
     };
 
     const amountByCurrency = {};
+    const costsByCurrency = {};
     let lastCreatedAt = null;
     let lastId = null;
 
@@ -177,6 +187,27 @@ export default function AdminPage() {
       const amt = Number(o?.amount);
       if (cur && Number.isFinite(amt)) {
         amountByCurrency[cur] = (amountByCurrency[cur] || 0) + amt;
+      }
+
+      if (cur) {
+        if (!costsByCurrency[cur]) {
+          costsByCurrency[cur] = {
+            delivery_cost: 0,
+            packing_cost: 0,
+            ads_cost: 0,
+            rto_cost: 0,
+          };
+        }
+
+        const delivery = Number(o?.delivery_cost);
+        const packing = Number(o?.packing_cost);
+        const ads = Number(o?.ads_cost);
+        const rto = Number(o?.rto_cost);
+
+        if (Number.isFinite(delivery)) costsByCurrency[cur].delivery_cost += delivery;
+        if (Number.isFinite(packing)) costsByCurrency[cur].packing_cost += packing;
+        if (Number.isFinite(ads)) costsByCurrency[cur].ads_cost += ads;
+        if (Number.isFinite(rto)) costsByCurrency[cur].rto_cost += rto;
       }
 
       const created = o?.created_at ? new Date(o.created_at).getTime() : 0;
@@ -191,6 +222,7 @@ export default function AdminPage() {
       total: Array.isArray(orders) ? orders.length : 0,
       byStatus,
       amountByCurrency,
+      costsByCurrency,
       last: lastId ? { id: lastId, created_at: lastCreatedAt } : null,
     };
   }, [orders]);
@@ -645,6 +677,74 @@ export default function AdminPage() {
     }
   };
 
+  const parseCostInputOrNull = (value) => {
+    if (value === "" || value === null || value === undefined) return null;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    return n;
+  };
+
+  const onSaveOrderCosts = async () => {
+    setStatus({ type: "", message: "" });
+    if (!admin) {
+      setStatus({ type: "error", message: "Please login as admin first" });
+      return;
+    }
+
+    const orderId = orderDetails?.id;
+    if (!orderId) return;
+
+    const deliveryCost = parseCostInputOrNull(orderCostDraft.delivery_cost);
+    const packingCost = parseCostInputOrNull(orderCostDraft.packing_cost);
+    const adsCost = parseCostInputOrNull(orderCostDraft.ads_cost);
+    const rtoCost = parseCostInputOrNull(orderCostDraft.rto_cost);
+
+    const vals = [deliveryCost, packingCost, adsCost, rtoCost];
+    for (const v of vals) {
+      if (v !== null && v < 0) {
+        setStatus({ type: "error", message: "Costs cannot be negative" });
+        return;
+      }
+    }
+
+    setIsOrderCostSaving(true);
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+
+      const res = await apiFetch(`/admin/orders/${encodeURIComponent(orderId)}/costs`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          deliveryCost,
+          packingCost,
+          adsCost,
+          rtoCost,
+        }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      setOrders((prev) => prev.map((o) => (String(o.id) === String(orderId) ? payload : o)));
+      setOrderDetails(payload);
+
+      const warning = payload?.warning ? ` ${payload.warning}` : "";
+      setStatus({ type: "success", message: `Order costs saved.${warning}` });
+    } catch (e) {
+      console.error(e);
+      setStatus({ type: "error", message: e.message || "Failed to save order costs" });
+    } finally {
+      setIsOrderCostSaving(false);
+    }
+  };
+
   const onChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -684,6 +784,8 @@ export default function AdminPage() {
       body.append("mrp_usd", form.mrp_usd);
       body.append("price_inr", form.price_inr);
       body.append("price_usd", form.price_usd);
+      body.append("cost_inr", form.cost_inr);
+      body.append("cost_usd", form.cost_usd);
       body.append("price", form.price_inr);
       body.append("description", form.description);
       body.append("sizes", JSON.stringify(form.sizes || []));
@@ -763,6 +865,8 @@ export default function AdminPage() {
       mrp_usd: p.mrp_usd ?? "",
       price_inr: p.price_inr ?? p.price ?? "",
       price_usd: p.price_usd ?? "",
+      cost_inr: p.cost_inr ?? "",
+      cost_usd: p.cost_usd ?? "",
       description: p.description || "",
       sizes: normalizeSizes(p.sizes),
     });
@@ -856,6 +960,8 @@ export default function AdminPage() {
       body.append("mrp_usd", editForm.mrp_usd);
       body.append("price_inr", editForm.price_inr);
       body.append("price_usd", editForm.price_usd);
+      body.append("cost_inr", editForm.cost_inr);
+      body.append("cost_usd", editForm.cost_usd);
       body.append("price", editForm.price_inr);
       body.append("description", editForm.description);
       body.append("sizes", JSON.stringify(editForm.sizes || []));
@@ -1050,6 +1156,34 @@ export default function AdminPage() {
     const revenueInr = orderStats.amountByCurrency?.INR || 0;
     const revenueUsd = orderStats.amountByCurrency?.USD || 0;
 
+    const inrCosts = orderStats.costsByCurrency?.INR || {
+      delivery_cost: 0,
+      packing_cost: 0,
+      ads_cost: 0,
+      rto_cost: 0,
+    };
+    const usdCosts = orderStats.costsByCurrency?.USD || {
+      delivery_cost: 0,
+      packing_cost: 0,
+      ads_cost: 0,
+      rto_cost: 0,
+    };
+
+    const deliveryRtoAdsInr = (inrCosts.delivery_cost || 0) + (inrCosts.rto_cost || 0) + (inrCosts.ads_cost || 0);
+    const deliveryRtoAdsUsd = (usdCosts.delivery_cost || 0) + (usdCosts.rto_cost || 0) + (usdCosts.ads_cost || 0);
+
+    // As requested: Net Profit = Revenue − (Ads + Packing + Delivery)
+    const netProfitInr = revenueInr - ((inrCosts.ads_cost || 0) + (inrCosts.packing_cost || 0) + (inrCosts.delivery_cost || 0));
+    const netProfitUsd = revenueUsd - ((usdCosts.ads_cost || 0) + (usdCosts.packing_cost || 0) + (usdCosts.delivery_cost || 0));
+
+    const fmt = (cur, value) => {
+      const n = Number(value);
+      const rounded = Number.isFinite(n) ? Math.round(n) : 0;
+      if (cur === "INR") return `₹${rounded.toLocaleString()}`;
+      if (cur === "USD") return `$${rounded.toLocaleString()}`;
+      return `${cur} ${rounded.toLocaleString()}`;
+    };
+
     const recent = (orders || []).slice(0, 5);
 
     return (
@@ -1108,6 +1242,50 @@ export default function AdminPage() {
                 <DollarSign size={24} />
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="z-card" style={{ marginTop: 16 }}>
+          <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+            Profit Snapshot
+          </div>
+          <div className="z-table-wrap">
+            <table className="z-table">
+              <thead>
+                <tr>
+                  <th>Currency</th>
+                  <th>Revenue</th>
+                  <th>Ads</th>
+                  <th>Packing</th>
+                  <th>Delivery</th>
+                  <th>RTO</th>
+                  <th>Delivery + RTO + Ads</th>
+                  <th>Net Profit</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="z-strong">INR</td>
+                  <td className="z-strong">{fmt("INR", revenueInr)}</td>
+                  <td>{fmt("INR", inrCosts.ads_cost || 0)}</td>
+                  <td>{fmt("INR", inrCosts.packing_cost || 0)}</td>
+                  <td>{fmt("INR", inrCosts.delivery_cost || 0)}</td>
+                  <td>{fmt("INR", inrCosts.rto_cost || 0)}</td>
+                  <td>{fmt("INR", deliveryRtoAdsInr)}</td>
+                  <td className="z-strong">{fmt("INR", netProfitInr)}</td>
+                </tr>
+                <tr>
+                  <td className="z-strong">USD</td>
+                  <td className="z-strong">{fmt("USD", revenueUsd)}</td>
+                  <td>{fmt("USD", usdCosts.ads_cost || 0)}</td>
+                  <td>{fmt("USD", usdCosts.packing_cost || 0)}</td>
+                  <td>{fmt("USD", usdCosts.delivery_cost || 0)}</td>
+                  <td>{fmt("USD", usdCosts.rto_cost || 0)}</td>
+                  <td>{fmt("USD", deliveryRtoAdsUsd)}</td>
+                  <td className="z-strong">{fmt("USD", netProfitUsd)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -1283,7 +1461,15 @@ export default function AdminPage() {
                           <button
                             className="z-btn secondary"
                             type="button"
-                            onClick={() => setOrderDetails(o)}
+                            onClick={() => {
+                              setOrderDetails(o);
+                              setOrderCostDraft({
+                                delivery_cost: o?.delivery_cost ?? "",
+                                packing_cost: o?.packing_cost ?? "",
+                                ads_cost: o?.ads_cost ?? "",
+                                rto_cost: o?.rto_cost ?? "",
+                              });
+                            }}
                             disabled={isTrackingBusy}
                           >
                             Details
@@ -1368,6 +1554,61 @@ export default function AdminPage() {
                   <div className="z-modal-field" style={{ gridColumn: "1 / -1" }}>
                     <div className="z-modal-label">Address</div>
                     <div className="z-strong">{formatOrderAddress(orderDetails)}</div>
+                  </div>
+
+                  <div className="z-modal-field" style={{ gridColumn: "1 / -1" }}>
+                    <div className="z-modal-label">Manual Costs (admin entry)</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                      <label className="z-label" style={{ margin: 0 }}>
+                        Delivery Cost
+                        <input
+                          className="z-input"
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={orderCostDraft.delivery_cost}
+                          onChange={(e) => setOrderCostDraft((p) => ({ ...p, delivery_cost: e.target.value }))}
+                        />
+                      </label>
+                      <label className="z-label" style={{ margin: 0 }}>
+                        Packing Cost
+                        <input
+                          className="z-input"
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={orderCostDraft.packing_cost}
+                          onChange={(e) => setOrderCostDraft((p) => ({ ...p, packing_cost: e.target.value }))}
+                        />
+                      </label>
+                      <label className="z-label" style={{ margin: 0 }}>
+                        Ads Cost
+                        <input
+                          className="z-input"
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={orderCostDraft.ads_cost}
+                          onChange={(e) => setOrderCostDraft((p) => ({ ...p, ads_cost: e.target.value }))}
+                        />
+                      </label>
+                      <label className="z-label" style={{ margin: 0 }}>
+                        RTO Cost
+                        <input
+                          className="z-input"
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={orderCostDraft.rto_cost}
+                          onChange={(e) => setOrderCostDraft((p) => ({ ...p, rto_cost: e.target.value }))}
+                        />
+                      </label>
+                    </div>
+                    <div style={{ marginTop: 10 }}>
+                      <button className="z-btn primary" type="button" onClick={onSaveOrderCosts} disabled={isOrderCostSaving}>
+                        {isOrderCostSaving ? "Saving…" : "Save Costs"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1617,8 +1858,8 @@ export default function AdminPage() {
               <input className="z-input" name="mrp_inr" value={form.mrp_inr} onChange={onChange} type="number" />
             </label>
             <label className="z-label">
-              Cost (optional)
-              <input className="z-input" type="number" placeholder="—" disabled />
+              Cost INR (optional)
+              <input className="z-input" name="cost_inr" value={form.cost_inr} onChange={onChange} type="number" min={0} step="0.01" placeholder="0" />
             </label>
           </div>
 
@@ -1632,8 +1873,8 @@ export default function AdminPage() {
               <input className="z-input" name="mrp_usd" value={form.mrp_usd} onChange={onChange} type="number" />
             </label>
             <label className="z-label">
-              SKU (optional)
-              <input className="z-input" placeholder="Use the SKU field above" disabled />
+              Cost USD (optional)
+              <input className="z-input" name="cost_usd" value={form.cost_usd} onChange={onChange} type="number" min={0} step="0.01" placeholder="Cost USD" />
             </label>
           </div>
 
@@ -1874,6 +2115,17 @@ export default function AdminPage() {
               <label className="z-label">
                 MRP USD
                 <input className="z-input" name="mrp_usd" type="number" value={editForm.mrp_usd} onChange={onEditChange} />
+              </label>
+            </div>
+
+            <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginBottom: 0 }}>
+              <label className="z-label">
+                Cost INR (optional)
+                <input className="z-input" name="cost_inr" type="number" min={0} step="0.01" value={editForm.cost_inr} onChange={onEditChange} />
+              </label>
+              <label className="z-label">
+                Cost USD (optional)
+                <input className="z-input" name="cost_usd" type="number" min={0} step="0.01" value={editForm.cost_usd} onChange={onEditChange} />
               </label>
             </div>
 
