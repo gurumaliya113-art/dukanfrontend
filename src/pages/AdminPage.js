@@ -261,6 +261,11 @@ export default function AdminPage() {
     USA: { ...EMPTY_MANUAL_SUBMIT },
   });
   const manualSubmitDateRef = useRef(null);
+  const [manualSubmitLoading, setManualSubmitLoading] = useState(false);
+  const [manualSubmitError, setManualSubmitError] = useState("");
+  const [manualRecentByRegion, setManualRecentByRegion] = useState({ IN: [], USA: [] });
+  const [manualRecentLoading, setManualRecentLoading] = useState(false);
+  const [manualRecentError, setManualRecentError] = useState("");
   const [ordersTab, setOrdersTab] = useState("Pending");
 
   useEffect(() => {
@@ -280,6 +285,113 @@ export default function AdminPage() {
       // ignore
     }
   }, [manualSubmitOpen, paymentsRegion]);
+
+  const loadManualPaymentForDate = async ({ region, date }) => {
+    if (!admin) return;
+    if (!region || !date) return;
+
+    setManualSubmitLoading(true);
+    setManualSubmitError("");
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+
+      const qs = new URLSearchParams({ region, date }).toString();
+      const res = await apiFetch(`/admin/manual-payments?${qs}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      const entry = payload?.entry || null;
+      if (!entry) return;
+
+      setManualSubmitByRegion((prev) => ({
+        ...prev,
+        [region]: {
+          ...(prev[region] || { ...EMPTY_MANUAL_SUBMIT }),
+          date: entry.pay_date || date,
+          deliveryPartnerInr: String(entry.delivery_partner_inr ?? ""),
+          paypalInr: String(entry.paypal_inr ?? ""),
+          upiWhatsappInr: String(entry.upi_whatsapp_inr ?? ""),
+          cashInBankInr: String(entry.cash_in_bank_inr ?? ""),
+          cashInHandInr: String(entry.cash_in_hand_inr ?? ""),
+          savedMessage: "",
+        },
+      }));
+    } catch (e) {
+      setManualSubmitError(e?.message || "Failed to load entry");
+    } finally {
+      setManualSubmitLoading(false);
+    }
+  };
+
+  const saveManualPayment = async ({ region, manual }) => {
+    if (!admin) throw new Error("Missing admin session");
+    const token = await getAccessToken();
+    if (!token) throw new Error("Missing admin session");
+
+    const res = await apiFetch("/admin/manual-payments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        region,
+        date: manual.date,
+        deliveryPartnerInr: manual.deliveryPartnerInr,
+        paypalInr: manual.paypalInr,
+        upiWhatsappInr: manual.upiWhatsappInr,
+        cashInBankInr: manual.cashInBankInr,
+        cashInHandInr: manual.cashInHandInr,
+      }),
+    });
+
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+      throw new Error(msg);
+    }
+
+    return payload?.entry || null;
+  };
+
+  const loadManualRecent = async (region) => {
+    if (!admin) return;
+    if (!region) return;
+    setManualRecentLoading(true);
+    setManualRecentError("");
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+      const qs = new URLSearchParams({ region, limit: "30" }).toString();
+      const res = await apiFetch(`/admin/manual-payments/recent?${qs}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+        throw new Error(msg);
+      }
+      const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+      setManualRecentByRegion((prev) => ({ ...prev, [region]: entries }));
+    } catch (e) {
+      setManualRecentError(e?.message || "Failed to load recent entries");
+    } finally {
+      setManualRecentLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!admin) return;
+    if (activePage !== "paymentsIN" && activePage !== "paymentsUSA") return;
+    loadManualRecent(paymentsRegion);
+  }, [admin, activePage, paymentsRegion]);
 
   const goto = (page) => {
     setActivePage(page);
@@ -2646,9 +2758,22 @@ export default function AdminPage() {
           <div className="z-page-head">
             <div>
               <div className="z-title">Manual Submit — Payments {isIn ? "INDIA" : "USA"}</div>
-              <div className="z-subtitle">Enter amounts in ₹ (UI only, not connected yet)</div>
+              <div className="z-subtitle">Enter amounts in ₹ (saved to database)</div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                className="z-btn secondary"
+                type="button"
+                onClick={() => {
+                  setManualSubmitByRegion((prev) => ({
+                    ...prev,
+                    [paymentsRegion]: { ...EMPTY_MANUAL_SUBMIT },
+                  }));
+                  setManualSubmitError("");
+                }}
+              >
+                + New Entry
+              </button>
               <button className="z-btn secondary" type="button" onClick={() => setManualSubmitOpen(false)}>
                 ← Back
               </button>
@@ -2675,6 +2800,11 @@ export default function AdminPage() {
                     onChange={(e) => {
                       setManualField("date", e.target.value);
                       setManualField("savedMessage", "");
+                      setManualSubmitError("");
+                      const next = e.target.value;
+                      if (next) {
+                        loadManualPaymentForDate({ region: paymentsRegion, date: next });
+                      }
                     }}
                     onFocus={(e) => {
                       try {
@@ -2686,6 +2816,9 @@ export default function AdminPage() {
                   />
                 </div>
               </div>
+
+              {manualSubmitLoading ? <div className="z-subtitle" style={{ marginTop: 10 }}>Loading…</div> : null}
+              {manualSubmitError ? <div className="z-subtitle" style={{ marginTop: 10, color: "#b91c1c" }}>{manualSubmitError}</div> : null}
 
               {manual.date ? (
                 <>
@@ -2778,8 +2911,19 @@ export default function AdminPage() {
                       <button
                         className="z-btn primary"
                         type="button"
-                        onClick={() => {
-                          setManualField("savedMessage", `Saved (UI only) for ${manual.date}`);
+                        disabled={manualSubmitLoading}
+                        onClick={async () => {
+                          try {
+                            setManualSubmitError("");
+                            setManualSubmitLoading(true);
+                            const saved = await saveManualPayment({ region: paymentsRegion, manual });
+                            setManualField("savedMessage", `Saved for ${saved?.pay_date || manual.date}`);
+                            await loadManualRecent(paymentsRegion);
+                          } catch (e) {
+                            setManualSubmitError(e?.message || "Save failed");
+                          } finally {
+                            setManualSubmitLoading(false);
+                          }
                         }}
                       >
                         Submit
@@ -2792,6 +2936,7 @@ export default function AdminPage() {
                             ...prev,
                             [paymentsRegion]: { ...EMPTY_MANUAL_SUBMIT },
                           }));
+                          setManualSubmitError("");
                         }}
                       >
                         Clear
@@ -2872,7 +3017,7 @@ export default function AdminPage() {
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="z-btn secondary" type="button" onClick={() => setManualSubmitOpen(true)}>
-              Manual Submit
+              Add / Edit
             </button>
             <button className="z-btn primary" type="button">
               Export Report
@@ -2918,9 +3063,76 @@ export default function AdminPage() {
 
         <div className="z-card">
           <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
-            Recent Transactions
+            Recent Manual Entries
           </div>
-          <div className="z-subtitle">Connect payments table/API to populate this.</div>
+
+          {manualRecentLoading ? <div className="z-subtitle">Loading…</div> : null}
+          {manualRecentError ? <div className="z-subtitle" style={{ color: "#b91c1c" }}>{manualRecentError}</div> : null}
+
+          <div style={{ overflowX: "auto" }}>
+            <table className="z-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Cash in Account (₹)</th>
+                  <th>Cash in Hand (₹)</th>
+                  <th>Indian (₹)</th>
+                  <th>International (₹)</th>
+                  <th>Total (₹)</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {(manualRecentByRegion[paymentsRegion] || []).length ? (
+                  (manualRecentByRegion[paymentsRegion] || []).map((r) => {
+                    const d = String(r?.pay_date || "");
+                    const dp = Number(r?.delivery_partner_inr) || 0;
+                    const upi = Number(r?.upi_whatsapp_inr) || 0;
+                    const pp = Number(r?.paypal_inr) || 0;
+                    const indian = dp + upi;
+                    const intl = pp;
+                    const total = indian + intl;
+                    return (
+                      <tr key={String(r?.id || d)}>
+                        <td>{d || "—"}</td>
+                        <td>{`₹${(Number(r?.cash_in_bank_inr) || 0).toFixed(2)}`}</td>
+                        <td>{`₹${(Number(r?.cash_in_hand_inr) || 0).toFixed(2)}`}</td>
+                        <td>{`₹${indian.toFixed(2)}`}</td>
+                        <td>{`₹${intl.toFixed(2)}`}</td>
+                        <td>{`₹${total.toFixed(2)}`}</td>
+                        <td style={{ textAlign: "right" }}>
+                          <button
+                            className="z-btn secondary"
+                            type="button"
+                            onClick={async () => {
+                              setManualSubmitByRegion((prev) => ({
+                                ...prev,
+                                [paymentsRegion]: {
+                                  ...(prev[paymentsRegion] || { ...EMPTY_MANUAL_SUBMIT }),
+                                  date: d,
+                                  savedMessage: "",
+                                },
+                              }));
+                              setManualSubmitOpen(true);
+                              if (d) await loadManualPaymentForDate({ region: paymentsRegion, date: d });
+                            }}
+                          >
+                            Edit
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="z-subtitle">
+                      No manual entries yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
