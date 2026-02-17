@@ -10,7 +10,7 @@ export default function Footer() {
       <div className="container footer-inner">
         <div className="footer-grid">
           <div className="footer-left">
-            <div className="footer-title">RK Apparels</div>
+            <div className="footer-title">Zubilo Apparels</div>
             <p className="footer-text">
               Redefining contemporary fashion with minimalist aesthetics and
               premium materials.
