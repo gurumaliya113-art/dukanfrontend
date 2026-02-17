@@ -268,6 +268,12 @@ export default function AdminPage() {
   const [manualRecentByRegion, setManualRecentByRegion] = useState({ IN: [], USA: [] });
   const [manualRecentLoading, setManualRecentLoading] = useState(false);
   const [manualRecentError, setManualRecentError] = useState("");
+  const [manualSummaryByRegion, setManualSummaryByRegion] = useState({
+    IN: { cashInBankInr: 0, cashInHandInr: 0 },
+    USA: { cashInBankInr: 0, cashInHandInr: 0 },
+  });
+  const [manualSummaryLoading, setManualSummaryLoading] = useState(false);
+  const [manualSummaryError, setManualSummaryError] = useState("");
   const [ordersTab, setOrdersTab] = useState("Pending");
 
   useEffect(() => {
@@ -413,11 +419,44 @@ export default function AdminPage() {
     }
   }, [admin, getAccessToken]);
 
+  const loadManualSummary = useCallback(async (region) => {
+    if (!admin) return;
+    if (!region) return;
+    setManualSummaryLoading(true);
+    setManualSummaryError("");
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+      const qs = new URLSearchParams({ region }).toString();
+      const res = await apiFetch(`/admin/manual-payments/summary?${qs}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+        throw new Error(msg);
+      }
+      const totals = payload?.totals || {};
+      setManualSummaryByRegion((prev) => ({
+        ...prev,
+        [region]: {
+          cashInBankInr: Number(totals.cash_in_bank_inr) || 0,
+          cashInHandInr: Number(totals.cash_in_hand_inr) || 0,
+        },
+      }));
+    } catch (e) {
+      setManualSummaryError(e?.message || "Failed to load cash totals");
+    } finally {
+      setManualSummaryLoading(false);
+    }
+  }, [admin, getAccessToken]);
+
   useEffect(() => {
     if (!admin) return;
     if (activePage !== "payments") return;
     loadManualRecent(paymentsRegion);
-  }, [admin, activePage, paymentsRegion, loadManualRecent]);
+    loadManualSummary(paymentsRegion);
+  }, [admin, activePage, paymentsRegion, loadManualRecent, loadManualSummary]);
 
   const goto = (page) => {
     setActivePage(page);
@@ -3004,6 +3043,7 @@ export default function AdminPage() {
                             const saved = await saveManualPayment({ region: paymentsRegion, manual });
                             setManualField("savedMessage", `Saved for ${saved?.pay_date || manual.date}`);
                             await loadManualRecent(paymentsRegion);
+                            await loadManualSummary(paymentsRegion);
                           } catch (e) {
                             setManualSubmitError(e?.message || "Save failed");
                           } finally {
@@ -3084,34 +3124,35 @@ export default function AdminPage() {
           </div>
         </div>
 
-        <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+        <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
           <div className="z-card">
             <div className="z-stat">
               <div>
-                <div className="z-stat-label">Total Revenue</div>
-                <div className="z-stat-value">{currency}—</div>
+                <div className="z-stat-label">Cash in Bank</div>
+                <div className="z-stat-value">
+                  {manualSummaryLoading
+                    ? "Loading…"
+                    : `${currency}${(manualSummaryByRegion[paymentsRegion]?.cashInBankInr || 0).toFixed(2)}`}
+                </div>
+                {manualSummaryError ? (
+                  <div className="z-subtitle" style={{ marginTop: 6, color: "#b91c1c" }}>{manualSummaryError}</div>
+                ) : null}
               </div>
               <div className="z-icon-box z-icon-green">
                 <DollarSign size={24} />
               </div>
             </div>
           </div>
+
           <div className="z-card">
             <div className="z-stat">
               <div>
-                <div className="z-stat-label">Pending</div>
-                <div className="z-stat-value">{currency}—</div>
-              </div>
-              <div className="z-icon-box z-icon-orange">
-                <DollarSign size={24} />
-              </div>
-            </div>
-          </div>
-          <div className="z-card">
-            <div className="z-stat">
-              <div>
-                <div className="z-stat-label">Today</div>
-                <div className="z-stat-value">{currency}—</div>
+                <div className="z-stat-label">Cash in Hand</div>
+                <div className="z-stat-value">
+                  {manualSummaryLoading
+                    ? "Loading…"
+                    : `${currency}${(manualSummaryByRegion[paymentsRegion]?.cashInHandInr || 0).toFixed(2)}`}
+                </div>
               </div>
               <div className="z-icon-box z-icon-blue">
                 <DollarSign size={24} />
