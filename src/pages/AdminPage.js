@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { CATEGORIES, normalizeCategory } from "../categories";
@@ -382,7 +382,12 @@ export default function AdminPage() {
     return payload?.entry || null;
   };
 
-  const loadManualRecent = async (region) => {
+  const getAccessToken = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.access_token || "";
+  }, []);
+
+  const loadManualRecent = useCallback(async (region) => {
     if (!admin) return;
     if (!region) return;
     setManualRecentLoading(true);
@@ -406,13 +411,13 @@ export default function AdminPage() {
     } finally {
       setManualRecentLoading(false);
     }
-  };
+  }, [admin, getAccessToken]);
 
   useEffect(() => {
     if (!admin) return;
     if (activePage !== "payments") return;
     loadManualRecent(paymentsRegion);
-  }, [admin, activePage, paymentsRegion]);
+  }, [admin, activePage, paymentsRegion, loadManualRecent]);
 
   const goto = (page) => {
     setActivePage(page);
@@ -504,11 +509,6 @@ export default function AdminPage() {
     });
     return result;
   }, [orders]);
-
-  const getAccessToken = async () => {
-    const { data } = await supabase.auth.getSession();
-    return data?.session?.access_token || "";
-  };
 
   const refreshAdmin = async () => {
     const token = await getAccessToken();
