@@ -251,8 +251,6 @@ export default function AdminPage() {
       deliveryPartnerTo: "bank", // bank | hand
       paypalTo: "bank", // bank | hand
       upiWhatsappTo: "bank", // bank | hand
-      cashInBankInr: "",
-      cashInHandInr: "",
       savedMessage: "",
     }),
     []
@@ -271,6 +269,10 @@ export default function AdminPage() {
   const [manualSummaryByRegion, setManualSummaryByRegion] = useState({
     IN: { cashInBankInr: "0.00", cashInHandInr: "0.00" },
     USA: { cashInBankInr: "0.00", cashInHandInr: "0.00" },
+  });
+  const [manualSummaryMetaByRegion, setManualSummaryMetaByRegion] = useState({
+    IN: { mode: "api" },
+    USA: { mode: "api" },
   });
   const [manualSummaryLoading, setManualSummaryLoading] = useState(false);
   const [manualSummaryError, setManualSummaryError] = useState("");
@@ -359,8 +361,6 @@ export default function AdminPage() {
           deliveryPartnerTo: String(entry.delivery_partner_to || "bank"),
           paypalTo: String(entry.paypal_to || "bank"),
           upiWhatsappTo: String(entry.upi_whatsapp_to || "bank"),
-          cashInBankInr: String(entry.cash_in_bank_inr ?? ""),
-          cashInHandInr: String(entry.cash_in_hand_inr ?? ""),
           savedMessage: "",
         },
       }));
@@ -410,8 +410,17 @@ export default function AdminPage() {
 
   const toPaiseSafe = (value) => {
     if (value === undefined || value === null || value === "") return 0;
-    const raw = String(value).trim();
+    const raw0 = String(value).trim();
+    if (!raw0) return 0;
+
+    let raw = raw0.replace(/\s+/g, "");
+    raw = raw.replace(/[^0-9,.\-+]/g, "");
     if (!raw) return 0;
+    if (raw.includes(",") && raw.includes(".")) raw = raw.replace(/,/g, "");
+    else if (raw.includes(",") && !raw.includes(".")) raw = raw.replace(/,/g, ".");
+    if (raw.startsWith("+")) raw = raw.slice(1);
+    if (raw.startsWith("-.")) raw = raw.replace("-.", "-0.");
+    if (raw.startsWith(".")) raw = `0${raw}`;
 
     const neg = raw.startsWith("-");
     const s = neg ? raw.slice(1) : raw;
@@ -647,6 +656,10 @@ export default function AdminPage() {
               cashInHandInr: paiseToStr2Safe(handPaise),
             },
           }));
+          setManualSummaryMetaByRegion((prev) => ({
+            ...prev,
+            [region]: { mode: "fallback" },
+          }));
           setManualSummaryError("");
           return;
         }
@@ -664,6 +677,10 @@ export default function AdminPage() {
           cashInBankInr: String(totals.cash_in_bank_inr ?? "0.00"),
           cashInHandInr: String(totals.cash_in_hand_inr ?? "0.00"),
         },
+      }));
+      setManualSummaryMetaByRegion((prev) => ({
+        ...prev,
+        [region]: { mode: "api" },
       }));
     } catch (e) {
       setManualSummaryError(e?.message || "Failed to load cash totals");
@@ -3063,43 +3080,11 @@ export default function AdminPage() {
 
     const manual = manualSubmitByRegion[paymentsRegion] || EMPTY_MANUAL_SUBMIT;
 
-    const toPaise = (value) => {
-      if (value === undefined || value === null || value === "") return 0;
-      const raw = String(value).trim();
-      if (!raw) return 0;
+    const paiseToDisplay = (paise) => `${currency}${paiseToStr2Safe(paise)}`;
 
-      const neg = raw.startsWith("-");
-      const s = neg ? raw.slice(1) : raw;
-      if (!/^\d+(?:\.\d+)?$/.test(s)) {
-        const n = Number(raw);
-        if (!Number.isFinite(n)) return 0;
-        return Math.max(0, Math.round(n * 100));
-      }
-
-      const parts = s.split(".");
-      const whole = parts[0] || "0";
-      const frac = parts[1] || "";
-      const frac3 = (frac + "000").slice(0, 3);
-      const cents = parseInt(frac3.slice(0, 2), 10) || 0;
-      const roundDigit = parseInt(frac3.slice(2, 3), 10) || 0;
-      let paise = (parseInt(whole, 10) || 0) * 100 + cents + (roundDigit >= 5 ? 1 : 0);
-      if (neg) paise = -paise;
-      if (!Number.isFinite(paise)) return 0;
-      return Math.max(0, Math.trunc(paise));
-    };
-
-    const paiseToStr2 = (paise) => {
-      const p = Number.isFinite(Number(paise)) ? Math.max(0, Math.trunc(Number(paise))) : 0;
-      const whole = Math.trunc(p / 100);
-      const frac = String(p % 100).padStart(2, "0");
-      return `${whole}.${frac}`;
-    };
-
-    const paiseToDisplay = (paise) => `${currency}${paiseToStr2(paise)}`;
-
-    const deliveryPartnerPaise = toPaise(manual.deliveryPartnerInr);
-    const paypalPaise = toPaise(manual.paypalInr);
-    const upiWhatsappPaise = toPaise(manual.upiWhatsappInr);
+    const deliveryPartnerPaise = toPaiseSafe(manual.deliveryPartnerInr);
+    const paypalPaise = toPaiseSafe(manual.paypalInr);
+    const upiWhatsappPaise = toPaiseSafe(manual.upiWhatsappInr);
     const totalIndianPaise = deliveryPartnerPaise + upiWhatsappPaise;
     const totalInternationalPaise = paypalPaise;
     const grandTotalPaise = totalIndianPaise + totalInternationalPaise;
@@ -3383,7 +3368,11 @@ export default function AdminPage() {
             {manual.date ? (
               <div className="z-card">
                 <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
-                  Cash
+                  Selected Date Split
+                </div>
+
+                <div className="z-subtitle" style={{ marginTop: -6, marginBottom: 10 }}>
+                  This split is only for {manual.date || "the selected date"}.
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12 }}>
@@ -3400,7 +3389,7 @@ export default function AdminPage() {
             ) : (
               <div className="z-card">
                 <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
-                  Cash
+                  Selected Date Split
                 </div>
                 <div className="z-subtitle">Select a date first to enable cash entry.</div>
               </div>
@@ -3436,11 +3425,15 @@ export default function AdminPage() {
           <div className="z-card">
             <div className="z-stat">
               <div>
-                <div className="z-stat-label">Cash in Bank</div>
+                <div className="z-stat-label">Lifetime Net — Cash in Bank</div>
                 <div className="z-stat-value">
                   {manualSummaryLoading
                     ? "Loading…"
                     : `${currency}${manualSummaryByRegion[paymentsRegion]?.cashInBankInr || "0.00"}`}
+                </div>
+                <div className="z-subtitle" style={{ marginTop: 6 }}>
+                  After takeouts
+                  {manualSummaryMetaByRegion[paymentsRegion]?.mode === "fallback" ? " (approx — recent entries only)" : ""}
                 </div>
                 {manualSummaryError ? (
                   <div className="z-subtitle" style={{ marginTop: 6, color: "#b91c1c" }}>{manualSummaryError}</div>
@@ -3455,11 +3448,15 @@ export default function AdminPage() {
           <div className="z-card">
             <div className="z-stat">
               <div>
-                <div className="z-stat-label">Cash in Hand</div>
+                <div className="z-stat-label">Lifetime Net — Cash in Hand</div>
                 <div className="z-stat-value">
                   {manualSummaryLoading
                     ? "Loading…"
                     : `${currency}${manualSummaryByRegion[paymentsRegion]?.cashInHandInr || "0.00"}`}
+                </div>
+                <div className="z-subtitle" style={{ marginTop: 6 }}>
+                  After takeouts
+                  {manualSummaryMetaByRegion[paymentsRegion]?.mode === "fallback" ? " (approx — recent entries only)" : ""}
                 </div>
               </div>
               <div className="z-icon-box z-icon-blue">
@@ -3467,6 +3464,10 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="z-subtitle" style={{ marginTop: 8 }}>
+          Tip: “Lifetime Net” is across all dates (minus takeouts). “Selected Date Split” is only inside Add / Edit.
         </div>
 
         <div className="z-card">
@@ -3494,17 +3495,17 @@ export default function AdminPage() {
                 {(manualRecentByRegion[paymentsRegion] || []).length ? (
                   (manualRecentByRegion[paymentsRegion] || []).map((r) => {
                     const d = String(r?.pay_date || "");
-                    const dp = toPaise(r?.delivery_partner_inr);
-                    const upi = toPaise(r?.upi_whatsapp_inr);
-                    const pp = toPaise(r?.paypal_inr);
+                    const dp = toPaiseSafe(r?.delivery_partner_inr);
+                    const upi = toPaiseSafe(r?.upi_whatsapp_inr);
+                    const pp = toPaiseSafe(r?.paypal_inr);
                     const indian = dp + upi;
                     const intl = pp;
                     const total = indian + intl;
                     return (
                       <tr key={String(r?.id || d)}>
                         <td>{d || "—"}</td>
-                        <td>{paiseToDisplay(toPaise(r?.cash_in_bank_inr))}</td>
-                        <td>{paiseToDisplay(toPaise(r?.cash_in_hand_inr))}</td>
+                        <td>{paiseToDisplay(toPaiseSafe(r?.cash_in_bank_inr))}</td>
+                        <td>{paiseToDisplay(toPaiseSafe(r?.cash_in_hand_inr))}</td>
                         <td>{paiseToDisplay(indian)}</td>
                         <td>{paiseToDisplay(intl)}</td>
                         <td>{paiseToDisplay(total)}</td>
@@ -3626,7 +3627,7 @@ export default function AdminPage() {
                       <td>{String(t?.take_date || "—")}</td>
                       <td>{String(t?.source || "").toLowerCase() === "bank" ? "Cash in Bank" : "Cash in Hand"}</td>
                       <td>{String(t?.purpose || "—")}</td>
-                      <td style={{ textAlign: "right" }}>{paiseToDisplay(toPaise(t?.amount_inr))}</td>
+                      <td style={{ textAlign: "right" }}>{paiseToDisplay(toPaiseSafe(t?.amount_inr))}</td>
                     </tr>
                   ))
                 ) : (
