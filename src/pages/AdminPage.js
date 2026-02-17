@@ -274,6 +274,32 @@ export default function AdminPage() {
   });
   const [manualSummaryLoading, setManualSummaryLoading] = useState(false);
   const [manualSummaryError, setManualSummaryError] = useState("");
+
+  const TAKEOUT_PURPOSES = useMemo(
+    () => [
+      "Personal expense",
+      "Stock buy",
+      "Delivery Partner App Payment",
+      "Ads",
+      "Branded Packets Buy",
+      "Salary",
+      "Packaging",
+      "Printer Essentials Office Essentials",
+      "Taken Out By Azad",
+      "Taken Out The Cost Price Taken Out By Mukul",
+    ],
+    []
+  );
+
+  const [takeoutAmountInr, setTakeoutAmountInr] = useState("");
+  const [takeoutDate, setTakeoutDate] = useState("");
+  const [takeoutSource, setTakeoutSource] = useState("hand"); // bank | hand
+  const [takeoutPurpose, setTakeoutPurpose] = useState("Personal expense");
+  const [takeoutSaving, setTakeoutSaving] = useState(false);
+  const [takeoutError, setTakeoutError] = useState("");
+  const [takeoutsRecent, setTakeoutsRecent] = useState([]);
+  const [takeoutsLoading, setTakeoutsLoading] = useState(false);
+  const [takeoutsError, setTakeoutsError] = useState("");
   const [ordersTab, setOrdersTab] = useState("Pending");
 
   useEffect(() => {
@@ -326,6 +352,9 @@ export default function AdminPage() {
           deliveryPartnerInr: String(entry.delivery_partner_inr ?? ""),
           paypalInr: String(entry.paypal_inr ?? ""),
           upiWhatsappInr: String(entry.upi_whatsapp_inr ?? ""),
+          deliveryPartnerTo: String(entry.delivery_partner_to || "bank"),
+          paypalTo: String(entry.paypal_to || "bank"),
+          upiWhatsappTo: String(entry.upi_whatsapp_to || "bank"),
           cashInBankInr: String(entry.cash_in_bank_inr ?? ""),
           cashInHandInr: String(entry.cash_in_hand_inr ?? ""),
           savedMessage: "",
@@ -374,6 +403,9 @@ export default function AdminPage() {
         deliveryPartnerInr: manual.deliveryPartnerInr,
         paypalInr: manual.paypalInr,
         upiWhatsappInr: manual.upiWhatsappInr,
+        deliveryPartnerTo: manual.deliveryPartnerTo,
+        paypalTo: manual.paypalTo,
+        upiWhatsappTo: manual.upiWhatsappTo,
         cashInBankInr,
         cashInHandInr,
       }),
@@ -431,6 +463,28 @@ export default function AdminPage() {
       const res = await apiFetch(`/admin/manual-payments/summary?${qs}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      // If backend deployment doesn't have /summary yet, avoid showing 404 in UI.
+      if (res.status === 404) {
+        // Fallback: sum from recent list (best-effort).
+        const rQs = new URLSearchParams({ region, limit: "200" }).toString();
+        const rRes = await apiFetch(`/admin/manual-payments/recent?${rQs}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const rPayload = await rRes.json().catch(() => ({}));
+        if (rRes.ok) {
+          const entries = Array.isArray(rPayload?.entries) ? rPayload.entries : [];
+          const bank = entries.reduce((s, x) => s + (Number(x?.cash_in_bank_inr) || 0), 0);
+          const hand = entries.reduce((s, x) => s + (Number(x?.cash_in_hand_inr) || 0), 0);
+          setManualSummaryByRegion((prev) => ({
+            ...prev,
+            [region]: { cashInBankInr: bank, cashInHandInr: hand },
+          }));
+          setManualSummaryError("");
+          return;
+        }
+      }
+
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg = payload?.error || payload?.message || `Failed (${res.status})`;
@@ -451,12 +505,65 @@ export default function AdminPage() {
     }
   }, [admin, getAccessToken]);
 
+  const loadTakeoutsRecent = useCallback(async (region) => {
+    if (!admin) return;
+    setTakeoutsLoading(true);
+    setTakeoutsError("");
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+      const qs = new URLSearchParams({ region, limit: "50" }).toString();
+      const res = await apiFetch(`/admin/cash-takeouts/recent?${qs}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+        throw new Error(msg);
+      }
+      setTakeoutsRecent(Array.isArray(payload?.takeouts) ? payload.takeouts : []);
+    } catch (e) {
+      setTakeoutsError(e?.message || "Failed to load takeouts");
+    } finally {
+      setTakeoutsLoading(false);
+    }
+  }, [admin, getAccessToken]);
+
+  const saveTakeout = useCallback(async ({ region, date, source, amountInr, purpose }) => {
+    if (!admin) throw new Error("Missing admin session");
+    const token = await getAccessToken();
+    if (!token) throw new Error("Missing admin session");
+
+    const res = await apiFetch("/admin/cash-takeouts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        region,
+        date,
+        source,
+        amountInr,
+        purpose,
+      }),
+    });
+
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = payload?.error || payload?.message || `Failed (${res.status})`;
+      throw new Error(msg);
+    }
+    return payload?.takeout || null;
+  }, [admin, getAccessToken]);
+
   useEffect(() => {
     if (!admin) return;
     if (activePage !== "payments") return;
     loadManualRecent(paymentsRegion);
     loadManualSummary(paymentsRegion);
-  }, [admin, activePage, paymentsRegion, loadManualRecent, loadManualSummary]);
+    loadTakeoutsRecent(paymentsRegion);
+  }, [admin, activePage, paymentsRegion, loadManualRecent, loadManualSummary, loadTakeoutsRecent]);
 
   const goto = (page) => {
     setActivePage(page);
@@ -3228,6 +3335,102 @@ export default function AdminPage() {
                     <td colSpan={7} className="z-subtitle">
                       No manual entries yet.
                     </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="z-card" style={{ marginTop: 14 }}>
+          <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+            Cash Takeout
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, alignItems: "end" }}>
+            <div>
+              <div className="z-subtitle" style={{ marginBottom: 6 }}>Date</div>
+              <input className="z-input" type="date" value={takeoutDate} onChange={(e) => setTakeoutDate(e.target.value)} />
+            </div>
+            <div>
+              <div className="z-subtitle" style={{ marginBottom: 6 }}>From</div>
+              <select className="z-input" value={takeoutSource} onChange={(e) => setTakeoutSource(e.target.value)}>
+                <option value="hand">Cash in Hand</option>
+                <option value="bank">Cash in Bank</option>
+              </select>
+            </div>
+            <div>
+              <div className="z-subtitle" style={{ marginBottom: 6 }}>Amount (₹)</div>
+              <input className="z-input" type="number" min={0} step="0.01" placeholder="0" value={takeoutAmountInr} onChange={(e) => setTakeoutAmountInr(e.target.value)} />
+            </div>
+            <div>
+              <button
+                className="z-btn primary"
+                type="button"
+                disabled={takeoutSaving}
+                onClick={async () => {
+                  try {
+                    setTakeoutError("");
+                    setTakeoutSaving(true);
+                    await saveTakeout({
+                      region: paymentsRegion,
+                      date: takeoutDate,
+                      source: takeoutSource,
+                      amountInr: takeoutAmountInr,
+                      purpose: takeoutPurpose,
+                    });
+                    setTakeoutAmountInr("");
+                    await loadTakeoutsRecent(paymentsRegion);
+                    await loadManualSummary(paymentsRegion);
+                  } catch (e) {
+                    setTakeoutError(e?.message || "Save failed");
+                  } finally {
+                    setTakeoutSaving(false);
+                  }
+                }}
+              >
+                Add Takeout
+              </button>
+            </div>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <div className="z-subtitle" style={{ marginBottom: 6 }}>Purpose</div>
+              <select className="z-input" value={takeoutPurpose} onChange={(e) => setTakeoutPurpose(e.target.value)}>
+                {TAKEOUT_PURPOSES.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {takeoutError ? <div className="z-subtitle" style={{ marginTop: 10, color: "#b91c1c" }}>{takeoutError}</div> : null}
+
+          <div className="z-strong" style={{ marginTop: 16, marginBottom: 10 }}>Recent Takeouts</div>
+          {takeoutsLoading ? <div className="z-subtitle">Loading…</div> : null}
+          {takeoutsError ? <div className="z-subtitle" style={{ color: "#b91c1c" }}>{takeoutsError}</div> : null}
+
+          <div style={{ overflowX: "auto" }}>
+            <table className="z-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>From</th>
+                  <th>Purpose</th>
+                  <th style={{ textAlign: "right" }}>Amount (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {takeoutsRecent.length ? (
+                  takeoutsRecent.map((t) => (
+                    <tr key={String(t?.id || "") + String(t?.take_date || "")}>
+                      <td>{String(t?.take_date || "—")}</td>
+                      <td>{String(t?.source || "").toLowerCase() === "bank" ? "Cash in Bank" : "Cash in Hand"}</td>
+                      <td>{String(t?.purpose || "—")}</td>
+                      <td style={{ textAlign: "right" }}>{`₹${(Number(t?.amount_inr) || 0).toFixed(2)}`}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="z-subtitle">No takeouts yet.</td>
                   </tr>
                 )}
               </tbody>
