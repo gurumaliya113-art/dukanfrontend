@@ -243,7 +243,43 @@ export default function AdminPage() {
   const [activePage, setActivePage] = useState("dashboard");
   const [paymentsOpen, setPaymentsOpen] = useState(false);
   const [paymentsRegion, setPaymentsRegion] = useState("IN"); // IN | USA
+  const EMPTY_MANUAL_SUBMIT = useMemo(
+    () => ({
+      date: "",
+      deliveryPartnerInr: "",
+      paypalInr: "",
+      upiWhatsappInr: "",
+      cashInBankInr: "",
+      cashInHandInr: "",
+      savedMessage: "",
+    }),
+    []
+  );
+  const [manualSubmitOpen, setManualSubmitOpen] = useState(false);
+  const [manualSubmitByRegion, setManualSubmitByRegion] = useState({
+    IN: { ...EMPTY_MANUAL_SUBMIT },
+    USA: { ...EMPTY_MANUAL_SUBMIT },
+  });
+  const manualSubmitDateRef = useRef(null);
   const [ordersTab, setOrdersTab] = useState("Pending");
+
+  useEffect(() => {
+    if (activePage !== "paymentsIN" && activePage !== "paymentsUSA") {
+      setManualSubmitOpen(false);
+    }
+  }, [activePage]);
+
+  useEffect(() => {
+    if (!manualSubmitOpen) return;
+    const el = manualSubmitDateRef.current;
+    if (!el) return;
+    try {
+      el.focus();
+      if (typeof el.showPicker === "function") el.showPicker();
+    } catch {
+      // ignore
+    }
+  }, [manualSubmitOpen, paymentsRegion]);
 
   const goto = (page) => {
     setActivePage(page);
@@ -2579,6 +2615,254 @@ export default function AdminPage() {
   const renderPayments = () => {
     const isIn = paymentsRegion === "IN";
     const currency = isIn ? "₹" : "$";
+
+    const manual = manualSubmitByRegion[paymentsRegion] || EMPTY_MANUAL_SUBMIT;
+
+    const toAmount = (value) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.max(0, n) : 0;
+    };
+
+    const deliveryPartner = toAmount(manual.deliveryPartnerInr);
+    const paypal = toAmount(manual.paypalInr);
+    const upiWhatsapp = toAmount(manual.upiWhatsappInr);
+    const totalIndian = deliveryPartner + upiWhatsapp;
+    const totalInternational = paypal;
+    const grandTotal = totalIndian + totalInternational;
+
+    const setManualField = (key, value) => {
+      setManualSubmitByRegion((prev) => ({
+        ...prev,
+        [paymentsRegion]: {
+          ...(prev[paymentsRegion] || { ...EMPTY_MANUAL_SUBMIT }),
+          [key]: value,
+        },
+      }));
+    };
+
+    if (manualSubmitOpen) {
+      return (
+        <div>
+          <div className="z-page-head">
+            <div>
+              <div className="z-title">Manual Submit — Payments {isIn ? "INDIA" : "USA"}</div>
+              <div className="z-subtitle">Enter amounts in ₹ (UI only, not connected yet)</div>
+            </div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button className="z-btn secondary" type="button" onClick={() => setManualSubmitOpen(false)}>
+                ← Back
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 2fr) minmax(0, 1fr)", gap: 14, alignItems: "start" }}>
+            <div className="z-card">
+              <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+                Choose Date
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 10 }}>
+                <div>
+                  <div className="z-subtitle" style={{ marginBottom: 6 }}>
+                    Date
+                  </div>
+                  <input
+                    className="z-input"
+                    type="date"
+                    ref={manualSubmitDateRef}
+                    autoFocus
+                    value={manual.date}
+                    onChange={(e) => {
+                      setManualField("date", e.target.value);
+                      setManualField("savedMessage", "");
+                    }}
+                    onFocus={(e) => {
+                      try {
+                        if (typeof e.target.showPicker === "function") e.target.showPicker();
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {manual.date ? (
+                <>
+                  <div className="z-strong" style={{ fontSize: 18, marginTop: 18, marginBottom: 12 }}>
+                    Total Payments Received Today
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+                    <div>
+                      <div className="z-subtitle" style={{ marginBottom: 6 }}>
+                        Delivery partner app (₹)
+                      </div>
+                      <input
+                        className="z-input"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="0"
+                        value={manual.deliveryPartnerInr}
+                        onChange={(e) => {
+                          setManualField("deliveryPartnerInr", e.target.value);
+                          setManualField("savedMessage", "");
+                        }}
+                      />
+                      <div className="z-subtitle" style={{ marginTop: 6 }}>
+                        e.g. 50 ₹ from delivery partner app
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="z-subtitle" style={{ marginBottom: 6 }}>
+                        Receive from PayPal (₹)
+                      </div>
+                      <input
+                        className="z-input"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="0"
+                        value={manual.paypalInr}
+                        onChange={(e) => {
+                          setManualField("paypalInr", e.target.value);
+                          setManualField("savedMessage", "");
+                        }}
+                      />
+                      <div className="z-subtitle" style={{ marginTop: 6 }}>
+                        e.g. 700 ₹ received from PayPal
+                      </div>
+                    </div>
+
+                    <div style={{ gridColumn: "1 / -1" }}>
+                      <div className="z-subtitle" style={{ marginBottom: 6 }}>
+                        Payment from UPI / WhatsApp (₹)
+                      </div>
+                      <input
+                        className="z-input"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="0"
+                        value={manual.upiWhatsappInr}
+                        onChange={(e) => {
+                          setManualField("upiWhatsappInr", e.target.value);
+                          setManualField("savedMessage", "");
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="z-card" style={{ marginTop: 14 }}>
+                    <div className="z-strong" style={{ marginBottom: 10 }}>
+                      Totals (₹)
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+                      <div>
+                        <div className="z-subtitle">Indian</div>
+                        <div className="z-strong" style={{ fontSize: 18 }}>{`₹${totalIndian.toFixed(2)}`}</div>
+                      </div>
+                      <div>
+                        <div className="z-subtitle">International</div>
+                        <div className="z-strong" style={{ fontSize: 18 }}>{`₹${totalInternational.toFixed(2)}`}</div>
+                      </div>
+                      <div>
+                        <div className="z-subtitle">Grand Total</div>
+                        <div className="z-strong" style={{ fontSize: 18 }}>{`₹${grandTotal.toFixed(2)}`}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <button
+                        className="z-btn primary"
+                        type="button"
+                        onClick={() => {
+                          setManualField("savedMessage", `Saved (UI only) for ${manual.date}`);
+                        }}
+                      >
+                        Submit
+                      </button>
+                      <button
+                        className="z-btn secondary"
+                        type="button"
+                        onClick={() => {
+                          setManualSubmitByRegion((prev) => ({
+                            ...prev,
+                            [paymentsRegion]: { ...EMPTY_MANUAL_SUBMIT },
+                          }));
+                        }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    {manual.savedMessage ? <div className="z-subtitle" style={{ marginTop: 10 }}>{manual.savedMessage}</div> : null}
+                  </div>
+                </>
+              ) : (
+                <div className="z-subtitle" style={{ marginTop: 12 }}>
+                  Select a date to enter today’s received payments.
+                </div>
+              )}
+            </div>
+
+            {manual.date ? (
+              <div className="z-card">
+                <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+                  Cash
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12 }}>
+                  <div>
+                    <div className="z-subtitle" style={{ marginBottom: 6 }}>
+                      Cash in Bank (₹)
+                    </div>
+                    <input
+                      className="z-input"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="0"
+                      value={manual.cashInBankInr}
+                      onChange={(e) => {
+                        setManualField("cashInBankInr", e.target.value);
+                        setManualField("savedMessage", "");
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <div className="z-subtitle" style={{ marginBottom: 6 }}>
+                      Cash in Hand (₹)
+                    </div>
+                    <input
+                      className="z-input"
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      placeholder="0"
+                      value={manual.cashInHandInr}
+                      onChange={(e) => {
+                        setManualField("cashInHandInr", e.target.value);
+                        setManualField("savedMessage", "");
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="z-card">
+                <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+                  Cash
+                </div>
+                <div className="z-subtitle">Select a date first to enable cash entry.</div>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div>
         <div className="z-page-head">
@@ -2586,9 +2870,14 @@ export default function AdminPage() {
             <div className="z-title">Payments {isIn ? "INDIA" : "USA"}</div>
             <div className="z-subtitle">Summary UI (transactions data not connected yet)</div>
           </div>
-          <button className="z-btn primary" type="button">
-            Export Report
-          </button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button className="z-btn secondary" type="button" onClick={() => setManualSubmitOpen(true)}>
+              Manual Submit
+            </button>
+            <button className="z-btn primary" type="button">
+              Export Report
+            </button>
+          </div>
         </div>
 
         <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
