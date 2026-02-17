@@ -241,14 +241,16 @@ export default function AdminPage() {
   }, [orders]);
 
   const [activePage, setActivePage] = useState("dashboard");
-  const [paymentsOpen, setPaymentsOpen] = useState(false);
-  const [paymentsRegion, setPaymentsRegion] = useState("IN"); // IN | USA
+  const [paymentsRegion, setPaymentsRegion] = useState("IN");
   const EMPTY_MANUAL_SUBMIT = useMemo(
     () => ({
       date: "",
       deliveryPartnerInr: "",
       paypalInr: "",
       upiWhatsappInr: "",
+      deliveryPartnerTo: "bank", // bank | hand
+      paypalTo: "bank", // bank | hand
+      upiWhatsappTo: "bank", // bank | hand
       cashInBankInr: "",
       cashInHandInr: "",
       savedMessage: "",
@@ -269,7 +271,7 @@ export default function AdminPage() {
   const [ordersTab, setOrdersTab] = useState("Pending");
 
   useEffect(() => {
-    if (activePage !== "paymentsIN" && activePage !== "paymentsUSA") {
+    if (activePage !== "payments") {
       setManualSubmitOpen(false);
     }
   }, [activePage]);
@@ -335,6 +337,25 @@ export default function AdminPage() {
     const token = await getAccessToken();
     if (!token) throw new Error("Missing admin session");
 
+    const toAmount = (value) => {
+      const n = Number(value);
+      return Number.isFinite(n) ? Math.max(0, n) : 0;
+    };
+
+    const toBucket = (v) => (String(v || "").toLowerCase() === "hand" ? "hand" : "bank");
+    const deliveryPartner = toAmount(manual.deliveryPartnerInr);
+    const paypal = toAmount(manual.paypalInr);
+    const upiWhatsapp = toAmount(manual.upiWhatsappInr);
+
+    const cashInBankInr =
+      (toBucket(manual.deliveryPartnerTo) === "bank" ? deliveryPartner : 0) +
+      (toBucket(manual.paypalTo) === "bank" ? paypal : 0) +
+      (toBucket(manual.upiWhatsappTo) === "bank" ? upiWhatsapp : 0);
+    const cashInHandInr =
+      (toBucket(manual.deliveryPartnerTo) === "hand" ? deliveryPartner : 0) +
+      (toBucket(manual.paypalTo) === "hand" ? paypal : 0) +
+      (toBucket(manual.upiWhatsappTo) === "hand" ? upiWhatsapp : 0);
+
     const res = await apiFetch("/admin/manual-payments", {
       method: "POST",
       headers: {
@@ -347,8 +368,8 @@ export default function AdminPage() {
         deliveryPartnerInr: manual.deliveryPartnerInr,
         paypalInr: manual.paypalInr,
         upiWhatsappInr: manual.upiWhatsappInr,
-        cashInBankInr: manual.cashInBankInr,
-        cashInHandInr: manual.cashInHandInr,
+        cashInBankInr,
+        cashInHandInr,
       }),
     });
 
@@ -389,7 +410,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (!admin) return;
-    if (activePage !== "paymentsIN" && activePage !== "paymentsUSA") return;
+    if (activePage !== "payments") return;
     loadManualRecent(paymentsRegion);
   }, [admin, activePage, paymentsRegion]);
 
@@ -2725,8 +2746,7 @@ export default function AdminPage() {
   );
 
   const renderPayments = () => {
-    const isIn = paymentsRegion === "IN";
-    const currency = isIn ? "₹" : "$";
+    const currency = "₹";
 
     const manual = manualSubmitByRegion[paymentsRegion] || EMPTY_MANUAL_SUBMIT;
 
@@ -2741,6 +2761,20 @@ export default function AdminPage() {
     const totalIndian = deliveryPartner + upiWhatsapp;
     const totalInternational = paypal;
     const grandTotal = totalIndian + totalInternational;
+
+    const toBucket = (v) => (String(v || "").toLowerCase() === "hand" ? "hand" : "bank");
+    const deliveryPartnerBucket = toBucket(manual.deliveryPartnerTo);
+    const paypalBucket = toBucket(manual.paypalTo);
+    const upiWhatsappBucket = toBucket(manual.upiWhatsappTo);
+
+    const cashInBankComputed =
+      (deliveryPartnerBucket === "bank" ? deliveryPartner : 0) +
+      (paypalBucket === "bank" ? paypal : 0) +
+      (upiWhatsappBucket === "bank" ? upiWhatsapp : 0);
+    const cashInHandComputed =
+      (deliveryPartnerBucket === "hand" ? deliveryPartner : 0) +
+      (paypalBucket === "hand" ? paypal : 0) +
+      (upiWhatsappBucket === "hand" ? upiWhatsapp : 0);
 
     const setManualField = (key, value) => {
       setManualSubmitByRegion((prev) => ({
@@ -2757,7 +2791,7 @@ export default function AdminPage() {
         <div>
           <div className="z-page-head">
             <div>
-              <div className="z-title">Manual Submit — Payments {isIn ? "INDIA" : "USA"}</div>
+              <div className="z-title">Manual Submit — Payments</div>
               <div className="z-subtitle">Enter amounts in ₹ (saved to database)</div>
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -2843,6 +2877,23 @@ export default function AdminPage() {
                           setManualField("savedMessage", "");
                         }}
                       />
+                      <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
+                        <div className="z-subtitle" style={{ margin: 0 }}>
+                          Save to
+                        </div>
+                        <select
+                          className="z-input"
+                          value={manual.deliveryPartnerTo || "bank"}
+                          onChange={(e) => {
+                            setManualField("deliveryPartnerTo", e.target.value);
+                            setManualField("savedMessage", "");
+                          }}
+                          style={{ maxWidth: 170 }}
+                        >
+                          <option value="bank">Cash in Bank</option>
+                          <option value="hand">Cash in Hand</option>
+                        </select>
+                      </div>
                       <div className="z-subtitle" style={{ marginTop: 6 }}>
                         e.g. 50 ₹ from delivery partner app
                       </div>
@@ -2864,6 +2915,23 @@ export default function AdminPage() {
                           setManualField("savedMessage", "");
                         }}
                       />
+                      <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
+                        <div className="z-subtitle" style={{ margin: 0 }}>
+                          Save to
+                        </div>
+                        <select
+                          className="z-input"
+                          value={manual.paypalTo || "bank"}
+                          onChange={(e) => {
+                            setManualField("paypalTo", e.target.value);
+                            setManualField("savedMessage", "");
+                          }}
+                          style={{ maxWidth: 170 }}
+                        >
+                          <option value="bank">Cash in Bank</option>
+                          <option value="hand">Cash in Hand</option>
+                        </select>
+                      </div>
                       <div className="z-subtitle" style={{ marginTop: 6 }}>
                         e.g. 700 ₹ received from PayPal
                       </div>
@@ -2885,6 +2953,23 @@ export default function AdminPage() {
                           setManualField("savedMessage", "");
                         }}
                       />
+                      <div style={{ marginTop: 8, display: "flex", gap: 8, alignItems: "center" }}>
+                        <div className="z-subtitle" style={{ margin: 0 }}>
+                          Save to
+                        </div>
+                        <select
+                          className="z-input"
+                          value={manual.upiWhatsappTo || "bank"}
+                          onChange={(e) => {
+                            setManualField("upiWhatsappTo", e.target.value);
+                            setManualField("savedMessage", "");
+                          }}
+                          style={{ maxWidth: 170 }}
+                        >
+                          <option value="bank">Cash in Bank</option>
+                          <option value="hand">Cash in Hand</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
 
@@ -2960,38 +3045,12 @@ export default function AdminPage() {
 
                 <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12 }}>
                   <div>
-                    <div className="z-subtitle" style={{ marginBottom: 6 }}>
-                      Cash in Bank (₹)
-                    </div>
-                    <input
-                      className="z-input"
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      placeholder="0"
-                      value={manual.cashInBankInr}
-                      onChange={(e) => {
-                        setManualField("cashInBankInr", e.target.value);
-                        setManualField("savedMessage", "");
-                      }}
-                    />
+                    <div className="z-subtitle">Cash in Bank (₹)</div>
+                    <div className="z-strong" style={{ fontSize: 18 }}>{`₹${cashInBankComputed.toFixed(2)}`}</div>
                   </div>
                   <div>
-                    <div className="z-subtitle" style={{ marginBottom: 6 }}>
-                      Cash in Hand (₹)
-                    </div>
-                    <input
-                      className="z-input"
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      placeholder="0"
-                      value={manual.cashInHandInr}
-                      onChange={(e) => {
-                        setManualField("cashInHandInr", e.target.value);
-                        setManualField("savedMessage", "");
-                      }}
-                    />
+                    <div className="z-subtitle">Cash in Hand (₹)</div>
+                    <div className="z-strong" style={{ fontSize: 18 }}>{`₹${cashInHandComputed.toFixed(2)}`}</div>
                   </div>
                 </div>
               </div>
@@ -3012,7 +3071,7 @@ export default function AdminPage() {
       <div>
         <div className="z-page-head">
           <div>
-            <div className="z-title">Payments {isIn ? "INDIA" : "USA"}</div>
+            <div className="z-title">Payments</div>
             <div className="z-subtitle">Summary UI (transactions data not connected yet)</div>
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -3233,38 +3292,14 @@ export default function AdminPage() {
 
             <button
               type="button"
-              className={activePage.startsWith("payments") ? "z-nav-btn active" : "z-nav-btn"}
-              onClick={() => setPaymentsOpen((v) => !v)}
+              className={activePage === "payments" ? "z-nav-btn active" : "z-nav-btn"}
+              onClick={() => {
+                setPaymentsRegion("IN");
+                goto("payments");
+              }}
             >
               <DollarSign size={20} /> Payments
-              <span className="z-nav-right">
-                <ChevronDown size={16} style={{ transform: paymentsOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 180ms ease" }} />
-              </span>
             </button>
-            {paymentsOpen ? (
-              <div className="z-subnav">
-                <button
-                  type="button"
-                  className={activePage === "paymentsIN" ? "z-nav-btn active" : "z-nav-btn"}
-                  onClick={() => {
-                    setPaymentsRegion("IN");
-                    goto("paymentsIN");
-                  }}
-                >
-                  Payments INDIAN
-                </button>
-                <button
-                  type="button"
-                  className={activePage === "paymentsUSA" ? "z-nav-btn active" : "z-nav-btn"}
-                  onClick={() => {
-                    setPaymentsRegion("USA");
-                    goto("paymentsUSA");
-                  }}
-                >
-                  Payments USA
-                </button>
-              </div>
-            ) : null}
 
             <button
               type="button"
@@ -3385,7 +3420,7 @@ export default function AdminPage() {
                 {activePage === "tracking" ? renderTracking() : null}
                 {activePage === "addProducts" ? renderAddProducts() : null}
                 {activePage === "inventory" ? renderInventory() : null}
-                {activePage === "paymentsIN" || activePage === "paymentsUSA" ? renderPayments() : null}
+                {activePage === "payments" ? renderPayments() : null}
                 {activePage === "complaints" ? renderComplaints() : null}
               </>
             )}
