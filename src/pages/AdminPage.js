@@ -269,11 +269,14 @@ export default function AdminPage() {
   const [manualRecentLoading, setManualRecentLoading] = useState(false);
   const [manualRecentError, setManualRecentError] = useState("");
   const [manualSummaryByRegion, setManualSummaryByRegion] = useState({
-    IN: { cashInBankInr: 0, cashInHandInr: 0 },
-    USA: { cashInBankInr: 0, cashInHandInr: 0 },
+    IN: { cashInBankInr: "0.00", cashInHandInr: "0.00" },
+    USA: { cashInBankInr: "0.00", cashInHandInr: "0.00" },
   });
   const [manualSummaryLoading, setManualSummaryLoading] = useState(false);
   const [manualSummaryError, setManualSummaryError] = useState("");
+
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportPdfError, setExportPdfError] = useState("");
 
   const TAKEOUT_PURPOSES = useMemo(
     () => [
@@ -286,7 +289,8 @@ export default function AdminPage() {
       "Packaging",
       "Printer Essentials Office Essentials",
       "Taken Out By Azad",
-      "Taken Out The Cost Price Taken Out By Mukul",
+      "Taken Out By Mukul",
+      "Cost Price Taken Out",
     ],
     []
   );
@@ -372,25 +376,6 @@ export default function AdminPage() {
     const token = await getAccessToken();
     if (!token) throw new Error("Missing admin session");
 
-    const toAmount = (value) => {
-      const n = Number(value);
-      return Number.isFinite(n) ? Math.max(0, n) : 0;
-    };
-
-    const toBucket = (v) => (String(v || "").toLowerCase() === "hand" ? "hand" : "bank");
-    const deliveryPartner = toAmount(manual.deliveryPartnerInr);
-    const paypal = toAmount(manual.paypalInr);
-    const upiWhatsapp = toAmount(manual.upiWhatsappInr);
-
-    const cashInBankInr =
-      (toBucket(manual.deliveryPartnerTo) === "bank" ? deliveryPartner : 0) +
-      (toBucket(manual.paypalTo) === "bank" ? paypal : 0) +
-      (toBucket(manual.upiWhatsappTo) === "bank" ? upiWhatsapp : 0);
-    const cashInHandInr =
-      (toBucket(manual.deliveryPartnerTo) === "hand" ? deliveryPartner : 0) +
-      (toBucket(manual.paypalTo) === "hand" ? paypal : 0) +
-      (toBucket(manual.upiWhatsappTo) === "hand" ? upiWhatsapp : 0);
-
     const res = await apiFetch("/admin/manual-payments", {
       method: "POST",
       headers: {
@@ -406,8 +391,6 @@ export default function AdminPage() {
         deliveryPartnerTo: manual.deliveryPartnerTo,
         paypalTo: manual.paypalTo,
         upiWhatsappTo: manual.upiWhatsappTo,
-        cashInBankInr,
-        cashInHandInr,
       }),
     });
 
@@ -424,6 +407,187 @@ export default function AdminPage() {
     const { data } = await supabase.auth.getSession();
     return data?.session?.access_token || "";
   }, []);
+
+  const toPaiseSafe = (value) => {
+    if (value === undefined || value === null || value === "") return 0;
+    const raw = String(value).trim();
+    if (!raw) return 0;
+
+    const neg = raw.startsWith("-");
+    const s = neg ? raw.slice(1) : raw;
+    if (!/^\d+(?:\.\d+)?$/.test(s)) {
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return 0;
+      return Math.max(0, Math.round(n * 100));
+    }
+
+    const parts = s.split(".");
+    const whole = parts[0] || "0";
+    const frac = parts[1] || "";
+    const frac3 = (frac + "000").slice(0, 3);
+    const cents = parseInt(frac3.slice(0, 2), 10) || 0;
+    const roundDigit = parseInt(frac3.slice(2, 3), 10) || 0;
+    let paise = (parseInt(whole, 10) || 0) * 100 + cents + (roundDigit >= 5 ? 1 : 0);
+    if (neg) paise = -paise;
+    if (!Number.isFinite(paise)) return 0;
+    return Math.max(0, Math.trunc(paise));
+  };
+
+  const paiseToStr2Safe = (paise) => {
+    const p = Number.isFinite(Number(paise)) ? Math.max(0, Math.trunc(Number(paise))) : 0;
+    const whole = Math.trunc(p / 100);
+    const frac = String(p % 100).padStart(2, "0");
+    return `${whole}.${frac}`;
+  };
+
+  const exportPaymentsPdf = useCallback(async () => {
+    if (!admin) return;
+    setExportingPdf(true);
+    setExportPdfError("");
+
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Missing admin session");
+
+      const region = paymentsRegion;
+      const currency = "₹";
+
+      const qsSummary = new URLSearchParams({ region }).toString();
+      const qsRecent = new URLSearchParams({ region, limit: "200" }).toString();
+      const qsTakeouts = new URLSearchParams({ region, limit: "200" }).toString();
+
+      const [summaryRes, recentRes, takeoutsRes] = await Promise.all([
+        apiFetch(`/admin/manual-payments/summary?${qsSummary}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        apiFetch(`/admin/manual-payments/recent?${qsRecent}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        apiFetch(`/admin/cash-takeouts/recent?${qsTakeouts}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      const recentPayload = await recentRes.json().catch(() => ({}));
+      if (!recentRes.ok) {
+        const msg = recentPayload?.error || recentPayload?.message || `Failed (${recentRes.status})`;
+        throw new Error(msg);
+      }
+      const entries = Array.isArray(recentPayload?.entries) ? recentPayload.entries : [];
+
+      const takeoutsPayload = await takeoutsRes.json().catch(() => ({}));
+      if (!takeoutsRes.ok) {
+        const msg = takeoutsPayload?.error || takeoutsPayload?.message || `Failed (${takeoutsRes.status})`;
+        throw new Error(msg);
+      }
+      const takeouts = Array.isArray(takeoutsPayload?.takeouts) ? takeoutsPayload.takeouts : [];
+
+      let totals = { cash_in_bank_inr: "0.00", cash_in_hand_inr: "0.00" };
+      let bestEffort = false;
+
+      if (summaryRes.status === 404) {
+        bestEffort = true;
+        const bankPaise = entries.reduce((s, x) => s + toPaiseSafe(x?.cash_in_bank_inr), 0);
+        const handPaise = entries.reduce((s, x) => s + toPaiseSafe(x?.cash_in_hand_inr), 0);
+        const takeBankPaise = takeouts
+          .filter((t) => String(t?.source || "").toLowerCase() !== "hand")
+          .reduce((s, t) => s + toPaiseSafe(t?.amount_inr), 0);
+        const takeHandPaise = takeouts
+          .filter((t) => String(t?.source || "").toLowerCase() === "hand")
+          .reduce((s, t) => s + toPaiseSafe(t?.amount_inr), 0);
+
+        const netBankPaise = Math.max(0, bankPaise - takeBankPaise);
+        const netHandPaise = Math.max(0, handPaise - takeHandPaise);
+        totals = {
+          cash_in_bank_inr: paiseToStr2Safe(netBankPaise),
+          cash_in_hand_inr: paiseToStr2Safe(netHandPaise),
+        };
+      } else {
+        const summaryPayload = await summaryRes.json().catch(() => ({}));
+        if (!summaryRes.ok) {
+          const msg = summaryPayload?.error || summaryPayload?.message || `Failed (${summaryRes.status})`;
+          throw new Error(msg);
+        }
+        totals = summaryPayload?.totals || totals;
+      }
+
+      const { default: jsPDF } = await import("jspdf");
+      const autoTableModule = await import("jspdf-autotable");
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+
+      const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+
+      const now = new Date();
+      const stamp = now.toISOString().slice(0, 19).replace("T", " ");
+      const filenameDate = now.toISOString().slice(0, 10);
+
+      doc.setFontSize(16);
+      doc.text(`Payments Report (${region})`, 40, 50);
+      doc.setFontSize(10);
+      doc.text(`Generated: ${stamp}`, 40, 68);
+      if (bestEffort) doc.text("Note: Totals are best-effort (summary endpoint not available).", 40, 84);
+
+      const bankTotalStr = String(totals?.cash_in_bank_inr ?? "0.00");
+      const handTotalStr = String(totals?.cash_in_hand_inr ?? "0.00");
+
+      autoTable(doc, {
+        startY: bestEffort ? 100 : 92,
+        head: [["Cash in Bank", "Cash in Hand"]],
+        body: [[`${currency}${bankTotalStr}`, `${currency}${handTotalStr}`]],
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [17, 24, 39] },
+      });
+
+      const entriesBody = entries.map((r) => {
+        const d = String(r?.pay_date || "");
+        const dpPaise = toPaiseSafe(r?.delivery_partner_inr);
+        const upiPaise = toPaiseSafe(r?.upi_whatsapp_inr);
+        const ppPaise = toPaiseSafe(r?.paypal_inr);
+        const bankPaise = toPaiseSafe(r?.cash_in_bank_inr);
+        const handPaise = toPaiseSafe(r?.cash_in_hand_inr);
+        const totalPaise = dpPaise + upiPaise + ppPaise;
+        return [
+          d,
+          `${currency}${paiseToStr2Safe(bankPaise)}`,
+          `${currency}${paiseToStr2Safe(handPaise)}`,
+          `${currency}${paiseToStr2Safe(dpPaise)}`,
+          `${currency}${paiseToStr2Safe(upiPaise)}`,
+          `${currency}${paiseToStr2Safe(ppPaise)}`,
+          `${currency}${paiseToStr2Safe(totalPaise)}`,
+        ];
+      });
+
+      autoTable(doc, {
+        startY: (doc.lastAutoTable?.finalY || 92) + 18,
+        head: [["Date", "Bank", "Hand", "Delivery", "UPI/WhatsApp", "PayPal", "Total"]],
+        body: entriesBody.length ? entriesBody : [["—", "—", "—", "—", "—", "—", "—"]],
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [17, 24, 39] },
+      });
+
+      const takeoutsBody = takeouts.map((t) => {
+        const d = String(t?.take_date || "");
+        const src = String(t?.source || "").toLowerCase() === "hand" ? "Hand" : "Bank";
+        const purpose = String(t?.purpose || "");
+        const amtPaise = toPaiseSafe(t?.amount_inr);
+        return [d, src, purpose || "—", `${currency}${paiseToStr2Safe(amtPaise)}`];
+      });
+
+      autoTable(doc, {
+        startY: (doc.lastAutoTable?.finalY || 92) + 18,
+        head: [["Date", "Source", "Purpose", "Amount"]],
+        body: takeoutsBody.length ? takeoutsBody : [["—", "—", "—", "—"]],
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [17, 24, 39] },
+      });
+
+      doc.save(`payments-${region}-${filenameDate}.pdf`);
+    } catch (e) {
+      setExportPdfError(e?.message || "Failed to export PDF");
+    } finally {
+      setExportingPdf(false);
+    }
+  }, [admin, paymentsRegion, getAccessToken]);
 
   const loadManualRecent = useCallback(async (region) => {
     if (!admin) return;
@@ -474,11 +638,14 @@ export default function AdminPage() {
         const rPayload = await rRes.json().catch(() => ({}));
         if (rRes.ok) {
           const entries = Array.isArray(rPayload?.entries) ? rPayload.entries : [];
-          const bank = entries.reduce((s, x) => s + (Number(x?.cash_in_bank_inr) || 0), 0);
-          const hand = entries.reduce((s, x) => s + (Number(x?.cash_in_hand_inr) || 0), 0);
+          const bankPaise = entries.reduce((s, x) => s + toPaiseSafe(x?.cash_in_bank_inr), 0);
+          const handPaise = entries.reduce((s, x) => s + toPaiseSafe(x?.cash_in_hand_inr), 0);
           setManualSummaryByRegion((prev) => ({
             ...prev,
-            [region]: { cashInBankInr: bank, cashInHandInr: hand },
+            [region]: {
+              cashInBankInr: paiseToStr2Safe(bankPaise),
+              cashInHandInr: paiseToStr2Safe(handPaise),
+            },
           }));
           setManualSummaryError("");
           return;
@@ -494,8 +661,8 @@ export default function AdminPage() {
       setManualSummaryByRegion((prev) => ({
         ...prev,
         [region]: {
-          cashInBankInr: Number(totals.cash_in_bank_inr) || 0,
-          cashInHandInr: Number(totals.cash_in_hand_inr) || 0,
+          cashInBankInr: String(totals.cash_in_bank_inr ?? "0.00"),
+          cashInHandInr: String(totals.cash_in_hand_inr ?? "0.00"),
         },
       }));
     } catch (e) {
@@ -2896,31 +3063,60 @@ export default function AdminPage() {
 
     const manual = manualSubmitByRegion[paymentsRegion] || EMPTY_MANUAL_SUBMIT;
 
-    const toAmount = (value) => {
-      const n = Number(value);
-      return Number.isFinite(n) ? Math.max(0, n) : 0;
+    const toPaise = (value) => {
+      if (value === undefined || value === null || value === "") return 0;
+      const raw = String(value).trim();
+      if (!raw) return 0;
+
+      const neg = raw.startsWith("-");
+      const s = neg ? raw.slice(1) : raw;
+      if (!/^\d+(?:\.\d+)?$/.test(s)) {
+        const n = Number(raw);
+        if (!Number.isFinite(n)) return 0;
+        return Math.max(0, Math.round(n * 100));
+      }
+
+      const parts = s.split(".");
+      const whole = parts[0] || "0";
+      const frac = parts[1] || "";
+      const frac3 = (frac + "000").slice(0, 3);
+      const cents = parseInt(frac3.slice(0, 2), 10) || 0;
+      const roundDigit = parseInt(frac3.slice(2, 3), 10) || 0;
+      let paise = (parseInt(whole, 10) || 0) * 100 + cents + (roundDigit >= 5 ? 1 : 0);
+      if (neg) paise = -paise;
+      if (!Number.isFinite(paise)) return 0;
+      return Math.max(0, Math.trunc(paise));
     };
 
-    const deliveryPartner = toAmount(manual.deliveryPartnerInr);
-    const paypal = toAmount(manual.paypalInr);
-    const upiWhatsapp = toAmount(manual.upiWhatsappInr);
-    const totalIndian = deliveryPartner + upiWhatsapp;
-    const totalInternational = paypal;
-    const grandTotal = totalIndian + totalInternational;
+    const paiseToStr2 = (paise) => {
+      const p = Number.isFinite(Number(paise)) ? Math.max(0, Math.trunc(Number(paise))) : 0;
+      const whole = Math.trunc(p / 100);
+      const frac = String(p % 100).padStart(2, "0");
+      return `${whole}.${frac}`;
+    };
+
+    const paiseToDisplay = (paise) => `${currency}${paiseToStr2(paise)}`;
+
+    const deliveryPartnerPaise = toPaise(manual.deliveryPartnerInr);
+    const paypalPaise = toPaise(manual.paypalInr);
+    const upiWhatsappPaise = toPaise(manual.upiWhatsappInr);
+    const totalIndianPaise = deliveryPartnerPaise + upiWhatsappPaise;
+    const totalInternationalPaise = paypalPaise;
+    const grandTotalPaise = totalIndianPaise + totalInternationalPaise;
 
     const toBucket = (v) => (String(v || "").toLowerCase() === "hand" ? "hand" : "bank");
     const deliveryPartnerBucket = toBucket(manual.deliveryPartnerTo);
     const paypalBucket = toBucket(manual.paypalTo);
     const upiWhatsappBucket = toBucket(manual.upiWhatsappTo);
 
-    const cashInBankComputed =
-      (deliveryPartnerBucket === "bank" ? deliveryPartner : 0) +
-      (paypalBucket === "bank" ? paypal : 0) +
-      (upiWhatsappBucket === "bank" ? upiWhatsapp : 0);
-    const cashInHandComputed =
-      (deliveryPartnerBucket === "hand" ? deliveryPartner : 0) +
-      (paypalBucket === "hand" ? paypal : 0) +
-      (upiWhatsappBucket === "hand" ? upiWhatsapp : 0);
+    const cashInBankComputedPaise =
+      (deliveryPartnerBucket === "bank" ? deliveryPartnerPaise : 0) +
+      (paypalBucket === "bank" ? paypalPaise : 0) +
+      (upiWhatsappBucket === "bank" ? upiWhatsappPaise : 0);
+    const cashInHandComputedPaise =
+      (deliveryPartnerBucket === "hand" ? deliveryPartnerPaise : 0) +
+      (paypalBucket === "hand" ? paypalPaise : 0) +
+      (upiWhatsappBucket === "hand" ? upiWhatsappPaise : 0);
 
     const setManualField = (key, value) => {
       setManualSubmitByRegion((prev) => ({
@@ -3126,15 +3322,15 @@ export default function AdminPage() {
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
                       <div>
                         <div className="z-subtitle">Indian</div>
-                        <div className="z-strong" style={{ fontSize: 18 }}>{`₹${totalIndian.toFixed(2)}`}</div>
+                        <div className="z-strong" style={{ fontSize: 18 }}>{paiseToDisplay(totalIndianPaise)}</div>
                       </div>
                       <div>
                         <div className="z-subtitle">International</div>
-                        <div className="z-strong" style={{ fontSize: 18 }}>{`₹${totalInternational.toFixed(2)}`}</div>
+                        <div className="z-strong" style={{ fontSize: 18 }}>{paiseToDisplay(totalInternationalPaise)}</div>
                       </div>
                       <div>
                         <div className="z-subtitle">Grand Total</div>
-                        <div className="z-strong" style={{ fontSize: 18 }}>{`₹${grandTotal.toFixed(2)}`}</div>
+                        <div className="z-strong" style={{ fontSize: 18 }}>{paiseToDisplay(grandTotalPaise)}</div>
                       </div>
                     </div>
 
@@ -3193,11 +3389,11 @@ export default function AdminPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 12 }}>
                   <div>
                     <div className="z-subtitle">Cash in Bank (₹)</div>
-                    <div className="z-strong" style={{ fontSize: 18 }}>{`₹${cashInBankComputed.toFixed(2)}`}</div>
+                    <div className="z-strong" style={{ fontSize: 18 }}>{paiseToDisplay(cashInBankComputedPaise)}</div>
                   </div>
                   <div>
                     <div className="z-subtitle">Cash in Hand (₹)</div>
-                    <div className="z-strong" style={{ fontSize: 18 }}>{`₹${cashInHandComputed.toFixed(2)}`}</div>
+                    <div className="z-strong" style={{ fontSize: 18 }}>{paiseToDisplay(cashInHandComputedPaise)}</div>
                   </div>
                 </div>
               </div>
@@ -3219,14 +3415,19 @@ export default function AdminPage() {
         <div className="z-page-head">
           <div>
             <div className="z-title">Payments</div>
-            <div className="z-subtitle">Summary UI (transactions data not connected yet)</div>
+            <div className="z-subtitle">Manual entries + takeouts summary</div>
+            {exportPdfError ? (
+              <div className="z-subtitle" style={{ marginTop: 6, color: "#b91c1c" }}>
+                {exportPdfError}
+              </div>
+            ) : null}
           </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="z-btn secondary" type="button" onClick={() => setManualSubmitOpen(true)}>
               Add / Edit
             </button>
-            <button className="z-btn primary" type="button">
-              Export Report
+            <button className="z-btn primary" type="button" onClick={exportPaymentsPdf} disabled={exportingPdf}>
+              {exportingPdf ? "Exporting…" : "Export PDF"}
             </button>
           </div>
         </div>
@@ -3239,7 +3440,7 @@ export default function AdminPage() {
                 <div className="z-stat-value">
                   {manualSummaryLoading
                     ? "Loading…"
-                    : `${currency}${(manualSummaryByRegion[paymentsRegion]?.cashInBankInr || 0).toFixed(2)}`}
+                    : `${currency}${manualSummaryByRegion[paymentsRegion]?.cashInBankInr || "0.00"}`}
                 </div>
                 {manualSummaryError ? (
                   <div className="z-subtitle" style={{ marginTop: 6, color: "#b91c1c" }}>{manualSummaryError}</div>
@@ -3258,7 +3459,7 @@ export default function AdminPage() {
                 <div className="z-stat-value">
                   {manualSummaryLoading
                     ? "Loading…"
-                    : `${currency}${(manualSummaryByRegion[paymentsRegion]?.cashInHandInr || 0).toFixed(2)}`}
+                    : `${currency}${manualSummaryByRegion[paymentsRegion]?.cashInHandInr || "0.00"}`}
                 </div>
               </div>
               <div className="z-icon-box z-icon-blue">
@@ -3293,20 +3494,20 @@ export default function AdminPage() {
                 {(manualRecentByRegion[paymentsRegion] || []).length ? (
                   (manualRecentByRegion[paymentsRegion] || []).map((r) => {
                     const d = String(r?.pay_date || "");
-                    const dp = Number(r?.delivery_partner_inr) || 0;
-                    const upi = Number(r?.upi_whatsapp_inr) || 0;
-                    const pp = Number(r?.paypal_inr) || 0;
+                    const dp = toPaise(r?.delivery_partner_inr);
+                    const upi = toPaise(r?.upi_whatsapp_inr);
+                    const pp = toPaise(r?.paypal_inr);
                     const indian = dp + upi;
                     const intl = pp;
                     const total = indian + intl;
                     return (
                       <tr key={String(r?.id || d)}>
                         <td>{d || "—"}</td>
-                        <td>{`₹${(Number(r?.cash_in_bank_inr) || 0).toFixed(2)}`}</td>
-                        <td>{`₹${(Number(r?.cash_in_hand_inr) || 0).toFixed(2)}`}</td>
-                        <td>{`₹${indian.toFixed(2)}`}</td>
-                        <td>{`₹${intl.toFixed(2)}`}</td>
-                        <td>{`₹${total.toFixed(2)}`}</td>
+                        <td>{paiseToDisplay(toPaise(r?.cash_in_bank_inr))}</td>
+                        <td>{paiseToDisplay(toPaise(r?.cash_in_hand_inr))}</td>
+                        <td>{paiseToDisplay(indian)}</td>
+                        <td>{paiseToDisplay(intl)}</td>
+                        <td>{paiseToDisplay(total)}</td>
                         <td style={{ textAlign: "right" }}>
                           <button
                             className="z-btn secondary"
@@ -3425,7 +3626,7 @@ export default function AdminPage() {
                       <td>{String(t?.take_date || "—")}</td>
                       <td>{String(t?.source || "").toLowerCase() === "bank" ? "Cash in Bank" : "Cash in Hand"}</td>
                       <td>{String(t?.purpose || "—")}</td>
-                      <td style={{ textAlign: "right" }}>{`₹${(Number(t?.amount_inr) || 0).toFixed(2)}`}</td>
+                      <td style={{ textAlign: "right" }}>{paiseToDisplay(toPaise(t?.amount_inr))}</td>
                     </tr>
                   ))
                 ) : (
