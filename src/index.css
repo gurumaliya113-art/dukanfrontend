@@ -1,21 +1,27 @@
 :root {
-  --bg: #fafafa;
-  --text: #1a1a1a;
-  --muted: rgba(26, 26, 26, 0.72);
-  --border: rgba(26, 26, 26, 0.12);
-  --glass: rgba(250, 250, 250, 0.72);
+  /* Premium warm-neutral palette */
+  --bg: #f6f1e8; /* Warm Cream */
+  --bg-alt: #e8dfd2; /* Sand Beige */
+  --surface: #cfc6b8; /* Soft Taupe */
+  --accent: #c6a75e; /* Soft Gold */
+
+  /* Typography + neutrals (avoid harsh black) */
+  --text: #2a221b; /* Deep warm brown */
+  --muted: rgba(42, 34, 27, 0.72);
+  --border: rgba(42, 34, 27, 0.14);
+  --glass: rgba(246, 241, 232, 0.72);
+
+  /* Depth + radii */
+  --radius: 12px;
+  --shadow-sm: 0 10px 26px rgba(42, 34, 27, 0.08);
+  --shadow-xs: 0 6px 18px rgba(42, 34, 27, 0.06);
 }
 
 * {
   box-sizing: border-box;
 }
 
-/* Force square corners everywhere (site-wide). */
-*,
-*::before,
-*::after {
-  border-radius: 0 !important;
-}
+/* Allow subtle rounded corners site-wide (8–12px used per component). */
 
 html,
 body {
@@ -78,9 +84,9 @@ p {
 }
 
 .promo-bar {
-  background: rgba(26, 26, 26, 0.92);
-  color: rgba(250, 250, 250, 0.98);
-  border-bottom: 1px solid rgba(250, 250, 250, 0.12);
+  background: var(--bg-alt);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
   font-size: 12px;
   letter-spacing: 0.06em;
 }
@@ -190,7 +196,7 @@ p {
 }
 
 .brand.brand-admin {
-  color: #facc15;
+  color: var(--accent);
   font-weight: 900;
   letter-spacing: 0.1em;
 }
@@ -216,7 +222,7 @@ p {
 
 /* Home top: yellow brand like requested (logo text only). */
 .nav.home-top .brand {
-  color: #fbbf24;
+  color: var(--accent);
 }
 
 .nav.home-top .nav-link.active {
@@ -225,7 +231,7 @@ p {
 
 .nav.home-top .icon-btn:hover {
   border-color: rgba(250, 250, 250, 0.2);
-  background: rgba(10, 10, 10, 0.24);
+  background: rgba(42, 34, 27, 0.22);
 }
 
 .nav-inner {
@@ -270,7 +276,7 @@ p {
   padding: 0 12px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(250, 250, 250, 0.55);
+  background: rgba(246, 241, 232, 0.7);
   color: var(--text);
   font-size: 12px;
   letter-spacing: 0.12em;
@@ -281,11 +287,11 @@ p {
 
 .region-select:focus {
   outline: none;
-  border-color: rgba(26, 26, 26, 0.28);
+  border-color: rgba(198, 167, 94, 0.75);
 }
 
 .region-select:focus-visible {
-  border-color: rgba(26, 26, 26, 0.35);
+  border-color: rgba(198, 167, 94, 0.9);
 }
 
 .nav-right .nav-link {
@@ -308,7 +314,7 @@ p {
 
 .icon-btn:hover {
   border-color: var(--border);
-  background: rgba(250, 250, 250, 0.55);
+  background: rgba(246, 241, 232, 0.7);
 }
 
 .icon-btn:active {
@@ -322,7 +328,7 @@ p {
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: #e11d48;
+  background: var(--accent);
 }
 
 .cart-badge {
@@ -333,8 +339,8 @@ p {
   height: 18px;
   padding: 0 6px;
   border-radius: 999px;
-  background: var(--text);
-  color: var(--bg);
+  background: var(--accent);
+  color: var(--text);
   display: grid;
   place-items: center;
   font-size: 11px;
@@ -351,7 +357,7 @@ p {
 }
 
 .nav-link.active {
-  border-bottom: 1px solid rgba(26, 26, 26, 0.5);
+  border-bottom: 1px solid rgba(42, 34, 27, 0.45);
   border-radius: 0;
 }
 
@@ -383,7 +389,9 @@ p {
 .reviews-card {
   margin-top: 14px;
   border: 1px solid var(--border);
-  background: rgba(250, 250, 250, 0.65);
+  border-radius: var(--radius);
+  background: rgba(246, 241, 232, 0.78);
+  box-shadow: var(--shadow-xs);
   padding: 18px;
 }
 
@@ -468,13 +476,13 @@ p {
   width: 28px;
   height: 2px;
   border: 0;
-  background: rgba(26, 26, 26, 0.18);
+  background: rgba(42, 34, 27, 0.18);
   cursor: pointer;
   padding: 0;
 }
 
 .reviews-dot.active {
-  background: rgba(26, 26, 26, 0.62);
+  background: rgba(42, 34, 27, 0.6);
 }
 
 @keyframes reviewIn {
@@ -561,7 +569,7 @@ p {
 .mobile-menu {
   display: none;
   border-top: 1px solid var(--border);
-  background: rgba(250, 250, 250, 0.72);
+  background: rgba(246, 241, 232, 0.78);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
@@ -597,7 +605,7 @@ p {
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(10, 10, 10, 0.72);
+  background: rgba(42, 34, 27, 0.74);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -607,6 +615,8 @@ p {
   border: 1px solid var(--border);
   background: var(--glass);
   color: var(--text);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
   padding: 22px 18px;
   text-align: center;
   animation: successPop 260ms ease both;
@@ -665,10 +675,10 @@ p {
   display: flex;
   align-items: center;
   position: relative;
-  color: rgba(250, 250, 250, 0.98);
+  color: rgba(246, 241, 232, 0.98);
   background:
-    linear-gradient(180deg, rgba(10, 10, 10, 0.5), rgba(10, 10, 10, 0.65)),
-    radial-gradient(circle at 20% 0%, rgba(26, 26, 26, 0.85), rgba(26, 26, 26, 0.98));
+    linear-gradient(180deg, rgba(42, 34, 27, 0.18), rgba(42, 34, 27, 0.52)),
+    radial-gradient(circle at 20% 0%, rgba(66, 54, 44, 0.35), rgba(42, 34, 27, 0.72));
   background-size: cover;
   background-position: center;
 }
@@ -677,7 +687,7 @@ p {
   font-size: 14px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: rgba(250, 250, 250, 0.88);
+  color: rgba(246, 241, 232, 0.9);
 }
 
 .hero-title {
@@ -692,7 +702,7 @@ p {
   left: 50%;
   bottom: 18px;
   transform: translateX(-50%);
-  color: rgba(250, 250, 250, 0.9);
+  color: rgba(246, 241, 232, 0.92);
   font-size: 12px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -701,8 +711,8 @@ p {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 999px;
-  border: 1px solid rgba(250, 250, 250, 0.25);
-  background: rgba(10, 10, 10, 0.25);
+  border: 1px solid rgba(246, 241, 232, 0.28);
+  background: rgba(42, 34, 27, 0.18);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -711,7 +721,7 @@ p {
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: rgba(250, 250, 250, 0.9);
+  background: rgba(246, 241, 232, 0.92);
   opacity: 0.45;
   animation: bounce 1.25s infinite;
 }
@@ -748,7 +758,7 @@ p {
   width: 100%;
   overflow: hidden;
   border: 1px solid var(--border);
-  background: rgba(250, 250, 250, 0.6);
+  background: rgba(246, 241, 232, 0.78);
   position: relative;
 }
 
@@ -767,7 +777,7 @@ p {
   font-size: clamp(11px, 2.1vw, 16px);
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(250, 250, 250, 0.92);
+  color: rgba(246, 241, 232, 0.92);
   opacity: 0;
   transform: translateY(-18px);
   animation: heroTextIn 640ms ease forwards;
@@ -779,7 +789,7 @@ p {
   line-height: 0.95;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(250, 250, 250, 0.98);
+  color: rgba(246, 241, 232, 0.98);
   opacity: 0;
   transform: translateY(-12px);
   animation: heroTextIn 640ms ease forwards;
@@ -806,7 +816,7 @@ p {
 .hero-blackout {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 1);
+  background: rgba(42, 34, 27, 1);
   opacity: 0;
   pointer-events: none;
   z-index: 1;
@@ -821,17 +831,17 @@ p {
   width: 38px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(250, 250, 250, 0.35);
-  background: rgba(10, 10, 10, 0.2);
-  color: rgba(250, 250, 250, 0.98);
+  border: 1px solid rgba(246, 241, 232, 0.35);
+  background: rgba(42, 34, 27, 0.18);
+  color: rgba(246, 241, 232, 0.98);
   cursor: pointer;
   transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
   z-index: 2;
 }
 
 .hero-arrow:hover {
-  background: rgba(10, 10, 10, 0.32);
-  border-color: rgba(250, 250, 250, 0.5);
+  background: rgba(42, 34, 27, 0.3);
+  border-color: rgba(246, 241, 232, 0.55);
 }
 
 .hero-arrow:active {
@@ -1043,8 +1053,8 @@ p {
   inset: 0;
   background: linear-gradient(
     180deg,
-    rgba(0, 0, 0, 0.22),
-    rgba(0, 0, 0, 0.32)
+    rgba(42, 34, 27, 0.12),
+    rgba(42, 34, 27, 0.38)
   );
 }
 
@@ -1124,15 +1134,17 @@ p {
 
 .product-card {
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius);
   overflow: hidden;
-  background: rgba(250, 250, 250, 0.6);
-  transition: transform 220ms ease, border-color 220ms ease;
+  background: rgba(246, 241, 232, 0.78);
+  box-shadow: var(--shadow-xs);
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
 }
 
 .product-card:hover {
   transform: translateY(-5px);
-  border-color: rgba(26, 26, 26, 0.24);
+  border-color: rgba(42, 34, 27, 0.22);
+  box-shadow: var(--shadow-sm);
 }
 
 .product-image-wrap {
@@ -1195,10 +1207,10 @@ p {
 .detail-image {
   width: auto;
   max-width: 100%;
-  border-radius: 18px;
+  border-radius: var(--radius);
   border: 1px solid var(--border);
   overflow: hidden;
-  background: rgba(26, 26, 26, 0.06);
+  background: rgba(42, 34, 27, 0.05);
   display: table;
   margin: 0 auto;
 }
@@ -1279,10 +1291,11 @@ p {
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  border: 1px solid #dc2626;
+  border: 1px solid var(--accent);
   padding: 6px 10px;
-  background: #dc2626;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--text);
+  font-weight: 700;
 }
 
 .detail-desc {
@@ -1314,11 +1327,11 @@ p {
   background: transparent;
   cursor: pointer;
   font-family: inherit;
-  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+  transition: background 180ms ease, border-color 180ms ease, transform 180ms ease, color 180ms ease;
 }
 
 .size-btn:hover {
-  border-color: rgba(26, 26, 26, 0.24);
+  border-color: rgba(42, 34, 27, 0.22);
 }
 
 .size-btn:active {
@@ -1326,22 +1339,30 @@ p {
 }
 
 .size-btn.active {
-  background: var(--text);
+  background: var(--surface);
   color: var(--bg);
-  border-color: var(--text);
+  border-color: var(--surface);
 }
 
 .primary-btn {
   margin-top: 18px;
   width: 100%;
   padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--text);
-  background: var(--text);
+  border-radius: var(--radius);
+  border: 1px solid var(--surface);
+  background: var(--surface);
   color: var(--bg);
   font-weight: 600;
   cursor: pointer;
-  transition: transform 180ms ease, opacity 180ms ease;
+  transition: background 300ms ease, color 300ms ease, border-color 300ms ease,
+    transform 180ms ease, opacity 180ms ease, box-shadow 300ms ease;
+}
+
+.primary-btn:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
 }
 
 .primary-btn:disabled {
@@ -1357,17 +1378,18 @@ p {
   margin-top: 10px;
   width: 100%;
   padding: 12px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text);
   font-weight: 600;
   cursor: pointer;
-  transition: transform 180ms ease, border-color 180ms ease;
+  transition: background 300ms ease, color 300ms ease, border-color 300ms ease, transform 180ms ease;
 }
 
 .secondary-btn:hover {
-  border-color: rgba(26, 26, 26, 0.22);
+  border-color: var(--accent);
+  background: rgba(198, 167, 94, 0.22);
 }
 
 .secondary-btn:active {
@@ -1395,9 +1417,10 @@ p {
 
 .checkout-summary {
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: var(--radius);
   padding: 14px;
-  background: rgba(250, 250, 250, 0.6);
+  background: rgba(246, 241, 232, 0.78);
+  box-shadow: var(--shadow-xs);
 }
 
 .summary-title {
@@ -1419,7 +1442,9 @@ p {
   margin-top: 10px;
   padding: 12px 10px;
   border: 1px solid var(--border);
-  background: rgba(250, 250, 250, 0.5);
+  background: rgba(246, 241, 232, 0.7);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1430,7 +1455,8 @@ p {
   flex: 0 0 82px;
   min-width: 58px;
   border: 1px solid var(--border);
-  background: rgba(250, 250, 250, 0.65);
+  background: rgba(246, 241, 232, 0.82);
+  border-radius: var(--radius);
   padding: 10px 8px;
   display: grid;
   justify-items: center;
@@ -1470,7 +1496,7 @@ p {
   flex: 1 0 16px;
   min-width: 14px;
   height: 3px;
-  background: rgba(26, 26, 26, 0.18);
+  background: rgba(42, 34, 27, 0.18);
 }
 
 .order-step-connector.done {
@@ -1502,8 +1528,8 @@ p {
   gap: 12px;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 14px;
-  background: rgba(250, 250, 250, 0.5);
+  border-radius: var(--radius);
+  background: rgba(246, 241, 232, 0.7);
 }
 
 .summary-line-name {
@@ -1539,9 +1565,10 @@ p {
 
 .checkout-form {
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: var(--radius);
   padding: 14px;
-  background: rgba(250, 250, 250, 0.6);
+  background: rgba(246, 241, 232, 0.78);
+  box-shadow: var(--shadow-xs);
   display: grid;
   gap: 12px;
 }
@@ -1566,19 +1593,21 @@ p {
 }
 
 .payment-card {
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(26, 26, 26, 0.08);
-  border-radius: 18px;
+  background: rgba(246, 241, 232, 0.82);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
   padding: 16px;
   backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-xs);
 }
 
 .cart-card {
   margin-top: 18px;
   border: 1px solid var(--border);
-  border-radius: 18px;
-  background: rgba(250, 250, 250, 0.6);
+  border-radius: var(--radius);
+  background: rgba(246, 241, 232, 0.78);
   overflow: hidden;
+  box-shadow: var(--shadow-xs);
 }
 
 .cart-empty {
@@ -2095,13 +2124,13 @@ p {
 input,
 textarea {
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius);
   padding: 12px 12px;
   font-family: inherit;
   font-size: 14px;
-  background: rgba(250, 250, 250, 0.85);
+  background: rgba(246, 241, 232, 0.9);
   color: var(--text);
-  transition: border-color 180ms ease, background 180ms ease;
+  transition: border-color 300ms ease, background 300ms ease, box-shadow 300ms ease;
 }
 
 /* ------------------------------
@@ -2594,12 +2623,13 @@ textarea {
 input:focus,
 textarea:focus {
   outline: none;
-  border-color: rgba(26, 26, 26, 0.28);
+  border-color: rgba(198, 167, 94, 0.9);
+  box-shadow: 0 0 0 3px rgba(198, 167, 94, 0.22);
 }
 
 input:focus-visible,
 textarea:focus-visible {
-  border-color: rgba(26, 26, 26, 0.35);
+  border-color: rgba(198, 167, 94, 1);
 }
 
 label {
@@ -2615,7 +2645,7 @@ label {
   margin-top: 72px;
   background: var(--text);
   color: var(--bg);
-  border-top: 1px solid rgba(250, 250, 250, 0.12);
+  border-top: 1px solid rgba(246, 241, 232, 0.16);
 }
 
 .footer-inner {
@@ -2641,7 +2671,7 @@ label {
 .footer-text {
   margin-top: 16px;
   max-width: 520px;
-  color: rgba(250, 250, 250, 0.72);
+  color: rgba(246, 241, 232, 0.74);
   font-size: 15px;
   line-height: 1.75;
 }
@@ -2664,33 +2694,34 @@ label {
   width: 100%;
   border-radius: 0;
   border: 0;
-  border-bottom: 1px solid rgba(250, 250, 250, 0.28);
+  border-bottom: 1px solid rgba(246, 241, 232, 0.32);
   padding: 12px 0;
   background: transparent;
-  color: rgba(250, 250, 250, 0.92);
+  color: rgba(246, 241, 232, 0.92);
   font-size: 14px;
   outline: none;
 }
 
 .footer-input::placeholder {
-  color: rgba(250, 250, 250, 0.48);
+  color: rgba(246, 241, 232, 0.5);
 }
 
 .footer-btn {
   border: 0;
   background: transparent;
-  color: rgba(250, 250, 250, 0.9);
+  color: rgba(246, 241, 232, 0.9);
   font-size: 12px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   padding: 12px 0;
   cursor: pointer;
-  border-bottom: 1px solid rgba(250, 250, 250, 0.35);
+  border-bottom: 1px solid rgba(246, 241, 232, 0.35);
+  transition: color 300ms ease, border-bottom-color 300ms ease;
 }
 
 .footer-btn:hover {
-  color: rgba(250, 250, 250, 1);
-  border-bottom-color: rgba(250, 250, 250, 0.65);
+  color: rgba(246, 241, 232, 1);
+  border-bottom-color: rgba(246, 241, 232, 0.7);
 }
 
 @media (max-width: 900px) {
