@@ -16,6 +16,7 @@ import LoginPage from "./pages/LoginPage";
 import AccountPage from "./pages/AccountPage";
 import Footer from "./components/Footer";
 
+
 function App() {
   const location = useLocation();
 
@@ -24,6 +25,12 @@ function App() {
     // Change to your deployed domain if needed
     console.log('Sitemap: https://zubilo.studio/sitemap.xml');
   }, []);
+
+  // Scroll to top on route change
+  React.useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+  }, [location.pathname]);
+
   return (
     <div>
       <Navbar />
