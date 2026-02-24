@@ -833,57 +833,8 @@ export default function AdminPage() {
       if (Number.isNaN(d.getTime())) return "";
       return d.toLocaleDateString();
     } catch {
-      return (
-        <div>
-          <section className="admin-section">
-            <h1>Admin Panel</h1>
-            {/* ...existing code... */}
-          </section>
-
-          {/* BLOG ADMIN SECTION */}
-          <section className="admin-section" style={{ marginTop: 32 }}>
-            <h2>Blog Manager</h2>
-            <form onSubmit={onBlogSubmit} style={{ marginBottom: 16 }}>
-              <input className="z-input" name="title" value={blogForm.title} onChange={onBlogInput} placeholder="Blog Title" required style={{ marginBottom: 8 }} />
-              <input className="z-input" name="author" value={blogForm.author} onChange={onBlogInput} placeholder="Author" style={{ marginBottom: 8 }} />
-              <input className="z-input" name="image_url" value={blogForm.image_url} onChange={onBlogInput} placeholder="Image URL" style={{ marginBottom: 8 }} />
-              <textarea className="z-input" name="summary" value={blogForm.summary} onChange={onBlogInput} placeholder="Summary" rows={2} style={{ marginBottom: 8 }} />
-              <textarea className="z-input" name="content" value={blogForm.content} onChange={onBlogInput} placeholder="Content" rows={5} required style={{ marginBottom: 8 }} />
-              <button className="z-btn primary" type="submit" disabled={isBlogSaving}>{blogForm.id ? 'Update' : 'Add'} Blog</button>
-              {blogForm.id && <button className="z-btn" type="button" onClick={() => setBlogForm({ id: null, title: '', content: '', summary: '', image_url: '', author: '' })} style={{ marginLeft: 8 }}>Cancel</button>}
-            </form>
-            {blogStatus.message && <div className={`status ${blogStatus.type}`}>{blogStatus.message}</div>}
-            <div>
-              <table className="z-table">
-                <thead>
-                  <tr>
-                    <th>Title</th>
-                    <th>Author</th>
-                    <th>Published</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {blogs.map((b) => (
-                    <tr key={b.id}>
-                      <td>{b.title}</td>
-                      <td>{b.author}</td>
-                      <td>{b.published_at ? formatDateTime(b.published_at) : ''}</td>
-                      <td>
-                        <button className="z-btn" onClick={() => onBlogEdit(b)}>Edit</button>
-                        <button className="z-btn danger" onClick={() => onBlogDelete(b.id)} style={{ marginLeft: 8 }}>Delete</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-          </section>
-          {/* ...existing code... */}
-        </div>
-      );
-  // Removed misplaced try-catch block that caused build error
+      return "";
+    }
   };
 
   const formatOrderAddress = (o) => {
@@ -2255,7 +2206,7 @@ export default function AdminPage() {
                       Order #{orderDetails?.id}
                     </div>
                     <div className="z-subtitle">
-                      Date: {formatOrderDate(orderDetails?.created_at) || "—"} · Time: {formatOrderTime(orderDetails?.created_at) || "—"}
+                      Date: {formatOrderDate(orderDetails?.created_at) || "—"}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
@@ -2476,9 +2427,7 @@ export default function AdminPage() {
             <div className="z-title">Tracking</div>
             <div className="z-subtitle">Update tracking status for an order</div>
           </div>
-        </div>
 
-        <div className="z-card" style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end" }}>
             <label className="z-label" style={{ flex: 1, minWidth: 240 }}>
               Search Order ID
@@ -3990,4 +3939,4 @@ export default function AdminPage() {
 
     </div>
   );
-
+}
