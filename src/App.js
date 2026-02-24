@@ -5,6 +5,7 @@ import Navbar from "./components/Navbar";
 import AdminPage from "./pages/AdminPage";
 import ShopPage from "./pages/ShopPage";
 import ProductPage from "./pages/ProductPage";
+import RedirectToSlug from "./pages/RedirectToSlug";
 import CheckoutPage from "./pages/CheckoutPage";
 import PaymentPage from "./pages/PaymentPage";
 import CartPage from "./pages/CartPage";
@@ -24,6 +25,7 @@ function App() {
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<ShopPage />} />
             <Route path="/product/:slug" element={<ProductPage />} />
+            <Route path="/product/:id" element={<RedirectToSlug />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/payment" element={<PaymentPage />} />
