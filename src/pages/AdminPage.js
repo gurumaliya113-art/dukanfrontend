@@ -2796,7 +2796,6 @@ export default function AdminPage() {
       </div>
     </div>
   );
-
   const renderInventory = () => (
     <div>
       <div className="z-page-head">
