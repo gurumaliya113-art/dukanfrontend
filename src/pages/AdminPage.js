@@ -4305,7 +4305,7 @@ export default function AdminPage() {
               <select className="z-input" name="footer_group" value={policyForm.footer_group} onChange={onPolicyInput}>
                 <option value="Help">Help</option>
                 <option value="Privacy & Legal">Privacy & Legal</option>
-                <option value="Other Services">Other Services</option>
+                <option value="Blog">Blog</option>
               </select>
             </label>
 

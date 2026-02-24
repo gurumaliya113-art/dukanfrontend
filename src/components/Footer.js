@@ -103,7 +103,7 @@ export default function Footer() {
     return {
       help: map.get("Help") || [],
       legal: map.get("Privacy & Legal") || [],
-      other: map.get("Other Services") || [],
+      blog: map.get("Blog") || [],
     };
   }, [policies]);
 
@@ -276,24 +276,19 @@ export default function Footer() {
                 <button
                   type="button"
                   className="footer-acc-btn"
-                  aria-expanded={openKey === "other"}
-                  onClick={() => toggleOpen("other")}
+                  aria-expanded={openKey === "blog"}
+                  onClick={() => toggleOpen("blog")}
                 >
-                  <span className="footer-acc-title">Other Services</span>
-                  <ChevronDown size={18} className={openKey === "other" ? "footer-acc-icon open" : "footer-acc-icon"} />
+                  <span className="footer-acc-title">Blog</span>
+                  <ChevronDown size={18} className={openKey === "blog" ? "footer-acc-icon open" : "footer-acc-icon"} />
                 </button>
-                <div className={openKey === "other" ? "footer-acc-panel open" : "footer-acc-panel"}>
-                  {policiesByGroup.other.length ? (
-                    policiesByGroup.other.map((p) => (
-                      <Link key={p.id || p.slug} className="footer-link" to={`/policy/${p.slug}`}>{p.title}</Link>
+                <div className={openKey === "blog" ? "footer-acc-panel open" : "footer-acc-panel"}>
+                  <Link className="footer-link" to="/blog">Blog Home</Link>
+                  {policiesByGroup.blog.length ? (
+                    policiesByGroup.blog.map((p) => (
+                      p.slug !== "blog" ? <Link key={p.id || p.slug} className="footer-link" to={`/policy/${p.slug}`}>{p.title}</Link> : null
                     ))
-                  ) : (
-                    <>
-                      <Link className="footer-link" to="/policy/media-press">Media & Press</Link>
-                      <Link className="footer-link" to="/policy/the-company">The Company</Link>
-                      <Link className="footer-link" to="/policy/careers">Careers</Link>
-                    </>
-                  )}
+                  ) : null}
                 </div>
               </div>
             </div>
