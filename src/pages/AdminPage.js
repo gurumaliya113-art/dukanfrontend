@@ -1383,6 +1383,11 @@ export default function AdminPage() {
       body.append("price", form.price_inr);
       body.append("description", form.description);
       body.append("sizes", JSON.stringify(form.sizes || []));
+      // Patch: Always send image slots for new products
+      body.append("image1", "");
+      body.append("image2", "");
+      body.append("image3", "");
+      body.append("image4", "");
       images.slice(0, 4).forEach((file) => body.append("images", file));
       if (videoFile) body.append("video", videoFile);
 
