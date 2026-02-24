@@ -15,8 +15,7 @@ import {
   MessageSquareWarning,
   Package,
   Search,
-  ShoppingCart,
-  TrendingUp,
+  TrendingUp
 } from "lucide-react";
 
 const PRODUCT_SIZE_OPTIONS = [
@@ -114,75 +113,7 @@ const formatDateTime = (value) => {
 };
 
 export default function AdminPage() {
-    // BLOG STATE
-    const [blogs, setBlogs] = useState([]);
-    const [blogForm, setBlogForm] = useState({ id: null, title: '', content: '', summary: '', image_url: '', author: '' });
-    const [isBlogSaving, setIsBlogSaving] = useState(false);
-    const [blogStatus, setBlogStatus] = useState({ type: '', message: '' });
-
-    // Fetch blogs
-    const loadBlogs = useCallback(async () => {
-      try {
-        const res = await apiFetch('/blogs');
-        const data = await res.json();
-        setBlogs(Array.isArray(data) ? data : []);
-      } catch (e) {
-        setBlogs([]);
-      }
-    }, []);
-
-    useEffect(() => { loadBlogs(); }, []);
-
-    // Blog form handlers
-    const onBlogInput = (e) => {
-      const { name, value } = e.target;
-      setBlogForm((prev) => ({ ...prev, [name]: value }));
-    };
-
-    const onBlogEdit = (blog) => {
-      setBlogForm({ ...blog });
-      setBlogStatus({ type: '', message: '' });
-    };
-
-    const onBlogDelete = async (id) => {
-      if (!window.confirm('Delete this blog?')) return;
-      setIsBlogSaving(true);
-      try {
-        const token = await getAccessToken();
-        await apiFetch(`/blogs/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-        setBlogStatus({ type: 'success', message: 'Deleted' });
-        setBlogForm({ id: null, title: '', content: '', summary: '', image_url: '', author: '' });
-        loadBlogs();
-      } catch (e) {
-        setBlogStatus({ type: 'error', message: 'Delete failed' });
-      } finally {
-        setIsBlogSaving(false);
-      }
-    };
-
-    const onBlogSubmit = async (e) => {
-      e.preventDefault();
-      setIsBlogSaving(true);
-      setBlogStatus({ type: '', message: '' });
-      try {
-        const token = await getAccessToken();
-        const method = blogForm.id ? 'PUT' : 'POST';
-        const url = blogForm.id ? `/blogs/${blogForm.id}` : '/blogs';
-        const res = await apiFetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(blogForm),
-        });
-        if (!res.ok) throw new Error('Save failed');
-        setBlogStatus({ type: 'success', message: blogForm.id ? 'Updated' : 'Added' });
-        setBlogForm({ id: null, title: '', content: '', summary: '', image_url: '', author: '' });
-        loadBlogs();
-      } catch (e) {
-        setBlogStatus({ type: 'error', message: e.message });
-      } finally {
-        setIsBlogSaving(false);
-      }
-    };
+    // ...existing code...
   const trackingSectionRef = useRef(null);
 
   const [form, setForm] = useState(initialForm);
@@ -1792,6 +1723,7 @@ export default function AdminPage() {
       console.error(e2);
       const raw = String(e2?.message || "");
       const looksLikeNetwork = /failed to fetch|networkerror|load failed|fetch/i.test(raw);
+      if (looksLike
       if (looksLikeNetwork) {
         const base = getApiBase() || "(empty)";
         setStatus({
@@ -1927,7 +1859,6 @@ export default function AdminPage() {
                   <th>RTO</th>
                   <th>Delivery + Packing + RTO + Ads</th>
                   <th>Net Profit</th>
-                </tr>
               </thead>
               <tbody>
                 <tr>
