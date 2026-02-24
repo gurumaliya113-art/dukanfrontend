@@ -3190,7 +3190,6 @@ export default function AdminPage() {
       ) : null}
     </div>
   );
-
   const renderPayments = () => {
     const currency = "₹";
 
