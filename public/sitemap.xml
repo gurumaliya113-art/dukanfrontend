@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <!-- Home -->
   <url>
     <loc>https://zubilo.studio/</loc>
     <priority>1.0</priority>
   </url>
 
-  <!-- Main Sections -->
+  <!-- Sections -->
+  <url>
+    <loc>https://zubilo.studio/new-arrivals</loc>
+    <priority>0.9</priority>
+  </url>
   <url>
     <loc>https://zubilo.studio/men</loc>
     <priority>0.9</priority>
@@ -19,8 +22,10 @@
     <loc>https://zubilo.studio/kids</loc>
     <priority>0.9</priority>
   </url>
+
+  <!-- Trending / New products -->
   <url>
-    <loc>https://zubilo.studio/new-arrivals</loc>
+    <loc>https://zubilo.studio/trending</loc>
     <priority>0.8</priority>
   </url>
   <url>
@@ -28,32 +33,9 @@
     <priority>0.8</priority>
   </url>
 
-  <!-- Blog Section for SEO -->
+  <!-- Blog -->
   <url>
     <loc>https://zubilo.studio/blog</loc>
     <priority>0.7</priority>
   </url>
-  <!-- Example blog post (replace with real slugs) -->
-  <url>
-    <loc>https://zubilo.studio/blog/why-choose-zubilo</loc>
-    <priority>0.6</priority>
-  </url>
-
-  <!-- Example Product Pages (replace with real slugs) -->
-  <url>
-    <loc>https://zubilo.studio/product/sample-product-slug</loc>
-    <priority>0.6</priority>
-  </url>
-  <url>
-    <loc>https://zubilo.studio/product/another-product-slug</loc>
-    <priority>0.6</priority>
-  </url>
-
-  <!-- Add more product/blog/category URLs dynamically for full SEO -->
-</urlset>
-  </url>
-  <url>
-    <loc>https://zubilo.studio/product/another-product-slug</loc>
-  </url>
-
 </urlset>

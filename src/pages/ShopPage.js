@@ -6,6 +6,7 @@ import { getCategoryLabel, normalizeCategory } from "../categories";
 import { apiFetch } from "../api";
 import HeroSlider from "../components/HeroSlider";
 import ReviewsSlider from "../components/ReviewsSlider";
+import BestSelling2026Scroller from "../components/BestSelling2026Scroller";
 
 export default function ShopPage() {
   const [products, setProducts] = useState([]);
@@ -154,6 +155,8 @@ export default function ShopPage() {
         subtitle="Faux Fur Jacket feedback from USA customers"
         mix
       />
+
+      <BestSelling2026Scroller region={region} onViewAllHref="#arrivals" />
 
       <section className="section" id="arrivals" ref={arrivalsRef}>
         <div className="container">

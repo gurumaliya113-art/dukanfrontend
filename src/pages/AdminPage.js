@@ -10,12 +10,16 @@ import {
   ChevronDown,
   DollarSign,
   Download,
+  FileText,
   LayoutDashboard,
   MapPin,
   MessageSquareWarning,
   Package,
   Search,
-  TrendingUp
+  Settings,
+  Shield,
+  ShoppingCart,
+  TrendingUp,
 } from "lucide-react";
 
 const PRODUCT_SIZE_OPTIONS = [
@@ -113,7 +117,6 @@ const formatDateTime = (value) => {
 };
 
 export default function AdminPage() {
-    // ...existing code...
   const trackingSectionRef = useRef(null);
 
   const [form, setForm] = useState(initialForm);
@@ -243,6 +246,333 @@ export default function AdminPage() {
 
   const [activePage, setActivePage] = useState("dashboard");
   const [paymentsRegion, setPaymentsRegion] = useState("IN");
+
+  const EMPTY_BLOG_FORM = useMemo(
+    () => ({ id: null, title: "", summary: "", content: "", image_url: "", author: "" }),
+    []
+  );
+  const [blogs, setBlogs] = useState([]);
+  const [blogForm, setBlogForm] = useState(EMPTY_BLOG_FORM);
+  const [isBlogLoading, setIsBlogLoading] = useState(false);
+  const [isBlogSaving, setIsBlogSaving] = useState(false);
+  const [blogStatus, setBlogStatus] = useState({ type: "", message: "" });
+
+  const EMPTY_POLICY_FORM = useMemo(
+    () => ({ id: null, title: "", slug: "", footer_group: "Privacy & Legal", content: "" }),
+    []
+  );
+  const [policies, setPolicies] = useState([]);
+  const [policyForm, setPolicyForm] = useState(EMPTY_POLICY_FORM);
+  const [isPoliciesLoading, setIsPoliciesLoading] = useState(false);
+  const [isPolicySaving, setIsPolicySaving] = useState(false);
+  const [policyStatus, setPolicyStatus] = useState({ type: "", message: "" });
+
+  const EMPTY_SITE_SETTINGS = useMemo(
+    () => ({
+      contact_email: "",
+      contact_phone: "",
+      contact_address: "",
+      instagram_url: "",
+      facebook_url: "",
+      twitter_url: "",
+      youtube_url: "",
+    }),
+    []
+  );
+  const [siteSettings, setSiteSettings] = useState(EMPTY_SITE_SETTINGS);
+  const [isSiteSettingsLoading, setIsSiteSettingsLoading] = useState(false);
+  const [isSiteSettingsSaving, setIsSiteSettingsSaving] = useState(false);
+  const [siteSettingsStatus, setSiteSettingsStatus] = useState({ type: "", message: "" });
+
+  const loadSiteSettings = useCallback(async () => {
+    setIsSiteSettingsLoading(true);
+    setSiteSettingsStatus({ type: "", message: "" });
+    try {
+      const res = await apiFetch("/site-settings");
+      const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(data?.error || `Failed to load settings (${res.status})`);
+      setSiteSettings((prev) => ({ ...prev, ...(data || {}) }));
+    } catch (e) {
+      console.error(e);
+      setSiteSettings((prev) => ({ ...prev }));
+      setSiteSettingsStatus({ type: "error", message: e?.message || "Failed to load settings" });
+    } finally {
+      setIsSiteSettingsLoading(false);
+    }
+  }, []);
+
+  const loadBlogs = useCallback(async () => {
+    setIsBlogLoading(true);
+    try {
+      const res = await apiFetch("/blogs");
+      const data = await res.json().catch(() => ([]));
+      setBlogs(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      setBlogs([]);
+    } finally {
+      setIsBlogLoading(false);
+    }
+  }, []);
+
+  const loadPolicies = useCallback(async () => {
+    setIsPoliciesLoading(true);
+    try {
+      const res = await apiFetch("/policies");
+      const data = await res.json().catch(() => ([]));
+      if (!res.ok) throw new Error(data?.error || `Failed to load policies (${res.status})`);
+      setPolicies(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+      setPolicies([]);
+      setPolicyStatus({ type: "error", message: e?.message || "Failed to load policies" });
+    } finally {
+      setIsPoliciesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!admin) return;
+    if (activePage !== "blogs") return;
+    loadBlogs();
+  }, [admin, activePage, loadBlogs]);
+
+  useEffect(() => {
+    if (!admin) return;
+    if (activePage !== "settings") return;
+    loadSiteSettings();
+  }, [admin, activePage, loadSiteSettings]);
+
+  useEffect(() => {
+    if (!admin) return;
+    if (activePage !== "policies") return;
+    loadPolicies();
+  }, [admin, activePage, loadPolicies]);
+
+  const onPolicyInput = (e) => {
+    const { name, value } = e.target;
+    setPolicyForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const onPolicyEdit = (p) => {
+    setPolicyStatus({ type: "", message: "" });
+    setPolicyForm({
+      id: p?.id ?? null,
+      title: p?.title ?? "",
+      slug: p?.slug ?? "",
+      footer_group: p?.footer_group ?? "Privacy & Legal",
+      content: p?.content ?? "",
+    });
+  };
+
+  const onPolicyReset = () => {
+    setPolicyStatus({ type: "", message: "" });
+    setPolicyForm(EMPTY_POLICY_FORM);
+  };
+
+  const onPolicyDelete = async (id) => {
+    const policyId = id ?? policyForm?.id;
+    if (!policyId) return;
+    if (!window.confirm("Delete this policy?")) return;
+
+    setIsPolicySaving(true);
+    setPolicyStatus({ type: "", message: "" });
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Login required");
+
+      const res = await apiFetch(`/policies/${policyId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || `Delete failed (${res.status})`);
+
+      setPolicyStatus({ type: "success", message: "Deleted" });
+      setPolicyForm(EMPTY_POLICY_FORM);
+      await loadPolicies();
+    } catch (e) {
+      setPolicyStatus({ type: "error", message: e?.message || "Delete failed" });
+    } finally {
+      setIsPolicySaving(false);
+    }
+  };
+
+  const onPolicySubmit = async (e) => {
+    e.preventDefault();
+
+    const title = String(policyForm?.title || "").trim();
+    if (!title) {
+      setPolicyStatus({ type: "error", message: "Title required" });
+      return;
+    }
+
+    setIsPolicySaving(true);
+    setPolicyStatus({ type: "", message: "" });
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Login required");
+
+      const isEdit = Boolean(policyForm?.id);
+      const url = isEdit ? `/policies/${policyForm.id}` : "/policies";
+      const method = isEdit ? "PUT" : "POST";
+
+      const res = await apiFetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title,
+          slug: policyForm?.slug || "",
+          footer_group: policyForm?.footer_group || "Privacy & Legal",
+          content: policyForm?.content || "",
+        }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || `Save failed (${res.status})`);
+
+      setPolicyStatus({ type: "success", message: isEdit ? "Updated" : "Added" });
+      setPolicyForm(EMPTY_POLICY_FORM);
+      await loadPolicies();
+    } catch (e2) {
+      setPolicyStatus({ type: "error", message: e2?.message || "Save failed" });
+    } finally {
+      setIsPolicySaving(false);
+    }
+  };
+
+  const onSiteSettingsInput = (e) => {
+    const { name, value } = e.target;
+    setSiteSettings((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const onSaveSiteSettings = async (e) => {
+    e.preventDefault();
+    setIsSiteSettingsSaving(true);
+    setSiteSettingsStatus({ type: "", message: "" });
+
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Login required");
+
+      const res = await apiFetch("/site-settings", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(siteSettings || {}),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || `Save failed (${res.status})`);
+
+      setSiteSettingsStatus({ type: "success", message: "Saved" });
+      setSiteSettings((prev) => ({ ...prev, ...(payload?.settings || {}) }));
+    } catch (e2) {
+      setSiteSettingsStatus({ type: "error", message: e2?.message || "Save failed" });
+    } finally {
+      setIsSiteSettingsSaving(false);
+    }
+  };
+
+  const onBlogInput = (e) => {
+    const { name, value } = e.target;
+    setBlogForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const onBlogEdit = (b) => {
+    setBlogStatus({ type: "", message: "" });
+    setBlogForm({
+      id: b?.id ?? null,
+      title: b?.title ?? "",
+      summary: b?.summary ?? "",
+      content: b?.content ?? "",
+      image_url: b?.image_url ?? "",
+      author: b?.author ?? "",
+    });
+  };
+
+  const onBlogReset = () => {
+    setBlogStatus({ type: "", message: "" });
+    setBlogForm(EMPTY_BLOG_FORM);
+  };
+
+  const onBlogDelete = async (id) => {
+    const blogId = id ?? blogForm?.id;
+    if (!blogId) return;
+    if (!window.confirm("Delete this blog?")) return;
+
+    setIsBlogSaving(true);
+    setBlogStatus({ type: "", message: "" });
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Login required");
+      const res = await apiFetch(`/blogs/${blogId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || `Delete failed (${res.status})`);
+      setBlogStatus({ type: "success", message: "Deleted" });
+      setBlogForm(EMPTY_BLOG_FORM);
+      await loadBlogs();
+    } catch (e) {
+      setBlogStatus({ type: "error", message: e?.message || "Delete failed" });
+    } finally {
+      setIsBlogSaving(false);
+    }
+  };
+
+  const onBlogSubmit = async (e) => {
+    e.preventDefault();
+
+    const title = String(blogForm?.title || "").trim();
+    const content = String(blogForm?.content || "").trim();
+    if (!title || !content) {
+      setBlogStatus({ type: "error", message: "Title and content required" });
+      return;
+    }
+
+    setIsBlogSaving(true);
+    setBlogStatus({ type: "", message: "" });
+    try {
+      const token = await getAccessToken();
+      if (!token) throw new Error("Login required");
+
+      const isEdit = Boolean(blogForm?.id);
+      const url = isEdit ? `/blogs/${blogForm.id}` : "/blogs";
+      const method = isEdit ? "PUT" : "POST";
+
+      const res = await apiFetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title,
+          content,
+          summary: blogForm?.summary || "",
+          image_url: blogForm?.image_url || "",
+          author: blogForm?.author || "",
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload?.error || payload?.message || `Save failed (${res.status})`);
+
+      setBlogStatus({ type: "success", message: isEdit ? "Updated" : "Added" });
+      setBlogForm(EMPTY_BLOG_FORM);
+      await loadBlogs();
+    } catch (e2) {
+      setBlogStatus({ type: "error", message: e2?.message || "Save failed" });
+    } finally {
+      setIsBlogSaving(false);
+    }
+  };
   const EMPTY_MANUAL_SUBMIT = useMemo(
     () => ({
       date: "",
@@ -763,6 +1093,16 @@ export default function AdminPage() {
       const d = new Date(value);
       if (Number.isNaN(d.getTime())) return "";
       return d.toLocaleDateString();
+    } catch {
+      return "";
+    }
+  };
+
+  const formatOrderTime = (value) => {
+    try {
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return "";
+      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     } catch {
       return "";
     }
@@ -1723,7 +2063,6 @@ export default function AdminPage() {
       console.error(e2);
       const raw = String(e2?.message || "");
       const looksLikeNetwork = /failed to fetch|networkerror|load failed|fetch/i.test(raw);
-      if (looksLike
       if (looksLikeNetwork) {
         const base = getApiBase() || "(empty)";
         setStatus({
@@ -1859,6 +2198,7 @@ export default function AdminPage() {
                   <th>RTO</th>
                   <th>Delivery + Packing + RTO + Ads</th>
                   <th>Net Profit</th>
+                </tr>
               </thead>
               <tbody>
                 <tr>
@@ -2137,7 +2477,7 @@ export default function AdminPage() {
                       Order #{orderDetails?.id}
                     </div>
                     <div className="z-subtitle">
-                      Date: {formatOrderDate(orderDetails?.created_at) || "—"}
+                      Date: {formatOrderDate(orderDetails?.created_at) || "—"} · Time: {formatOrderTime(orderDetails?.created_at) || "—"}
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
@@ -2358,7 +2698,9 @@ export default function AdminPage() {
             <div className="z-title">Tracking</div>
             <div className="z-subtitle">Update tracking status for an order</div>
           </div>
+        </div>
 
+        <div className="z-card" style={{ marginBottom: 16 }}>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "end" }}>
             <label className="z-label" style={{ flex: 1, minWidth: 240 }}>
               Search Order ID
@@ -3670,6 +4012,384 @@ export default function AdminPage() {
       </div>
     </div>
   );
+
+  const renderBlogs = () => (
+    <div>
+      <div className="z-page-head">
+        <div>
+          <div className="z-title">Blogs</div>
+          <div className="z-subtitle">Add / Edit blog posts</div>
+        </div>
+      </div>
+
+      {blogStatus?.message ? (
+        <div
+          className="z-subtitle"
+          style={{
+            color: blogStatus.type === "error" ? "#b91c1c" : "#16a34a",
+            marginBottom: 12,
+          }}
+        >
+          {blogStatus.message}
+        </div>
+      ) : null}
+
+      <div className="z-card">
+        <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+          {blogForm?.id ? `Edit Blog #${blogForm.id}` : "Add Blog"}
+        </div>
+
+        <form onSubmit={onBlogSubmit} style={{ display: "grid", gap: 12 }}>
+          <label className="z-label">
+            Title*
+            <input className="z-input" name="title" value={blogForm.title} onChange={onBlogInput} />
+          </label>
+
+          <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginBottom: 0 }}>
+            <label className="z-label">
+              Author
+              <input className="z-input" name="author" value={blogForm.author} onChange={onBlogInput} placeholder="Author name" />
+            </label>
+            <label className="z-label">
+              Image URL
+              <input className="z-input" name="image_url" value={blogForm.image_url} onChange={onBlogInput} placeholder="https://..." />
+            </label>
+          </div>
+
+          <label className="z-label">
+            Summary
+            <textarea className="z-input" name="summary" value={blogForm.summary} onChange={onBlogInput} rows={3} />
+          </label>
+
+          <label className="z-label">
+            Content*
+            <textarea className="z-input" name="content" value={blogForm.content} onChange={onBlogInput} rows={10} />
+          </label>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button className="z-btn primary" type="submit" disabled={isBlogSaving}>
+              {isBlogSaving ? "Saving…" : blogForm?.id ? "Update Blog" : "Add Blog"}
+            </button>
+            <button className="z-btn secondary" type="button" onClick={onBlogReset} disabled={isBlogSaving}>
+              Reset
+            </button>
+            {blogForm?.id ? (
+              <button className="z-btn secondary" type="button" onClick={() => onBlogDelete(blogForm.id)} disabled={isBlogSaving}>
+                Delete
+              </button>
+            ) : null}
+          </div>
+        </form>
+      </div>
+
+      <div className="z-card" style={{ marginTop: 16 }}>
+        <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+          All Blogs
+        </div>
+
+        {isBlogLoading ? <div className="z-subtitle">Loading…</div> : null}
+
+        <div style={{ overflowX: "auto" }}>
+          <table className="z-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Slug</th>
+                <th>Author</th>
+                <th>Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(blogs || []).length ? (
+                (blogs || []).map((b) => (
+                  <tr key={b.id || b.slug}>
+                    <td className="z-strong">{b.title || "—"}</td>
+                    <td>{b.slug || "—"}</td>
+                    <td>{b.author || "—"}</td>
+                    <td>{formatDateTime(b.published_at || b.created_at) || "—"}</td>
+                    <td>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <button className="z-btn secondary" type="button" onClick={() => onBlogEdit(b)} disabled={isBlogSaving}>
+                          Edit
+                        </button>
+                        <button className="z-btn secondary" type="button" onClick={() => onBlogDelete(b.id)} disabled={isBlogSaving}>
+                          Delete
+                        </button>
+                        {b.slug ? (
+                          <Link className="z-btn secondary" to={`/blog/${b.slug}`} target="_blank" rel="noreferrer">
+                            View
+                          </Link>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="z-subtitle">No blogs yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSettings = () => (
+    <div>
+      <div className="z-page-head">
+        <div>
+          <div className="z-title">Settings</div>
+          <div className="z-subtitle">Edit footer contact & social links</div>
+        </div>
+      </div>
+
+      {siteSettingsStatus?.message ? (
+        <div
+          className="z-subtitle"
+          style={{
+            color: siteSettingsStatus.type === "error" ? "#b91c1c" : "#16a34a",
+            marginBottom: 12,
+          }}
+        >
+          {siteSettingsStatus.message}
+        </div>
+      ) : null}
+
+      <div className="z-card">
+        <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+          Footer
+        </div>
+
+        {isSiteSettingsLoading ? <div className="z-subtitle">Loading…</div> : null}
+
+        <form onSubmit={onSaveSiteSettings} style={{ display: "grid", gap: 12 }}>
+          <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginBottom: 0 }}>
+            <label className="z-label">
+              Contact Email
+              <input
+                className="z-input"
+                name="contact_email"
+                value={siteSettings.contact_email}
+                onChange={onSiteSettingsInput}
+                placeholder="support@example.com"
+              />
+            </label>
+
+            <label className="z-label">
+              Contact Phone
+              <input
+                className="z-input"
+                name="contact_phone"
+                value={siteSettings.contact_phone}
+                onChange={onSiteSettingsInput}
+                placeholder="+91..."
+              />
+            </label>
+          </div>
+
+          <label className="z-label">
+            Contact Address
+            <input
+              className="z-input"
+              name="contact_address"
+              value={siteSettings.contact_address}
+              onChange={onSiteSettingsInput}
+              placeholder="City, Country"
+            />
+          </label>
+
+          <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginBottom: 0 }}>
+            <label className="z-label">
+              Instagram URL
+              <input
+                className="z-input"
+                name="instagram_url"
+                value={siteSettings.instagram_url}
+                onChange={onSiteSettingsInput}
+                placeholder="https://instagram.com/..."
+              />
+            </label>
+
+            <label className="z-label">
+              Facebook URL
+              <input
+                className="z-input"
+                name="facebook_url"
+                value={siteSettings.facebook_url}
+                onChange={onSiteSettingsInput}
+                placeholder="https://facebook.com/..."
+              />
+            </label>
+          </div>
+
+          <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginBottom: 0 }}>
+            <label className="z-label">
+              X (Twitter) URL
+              <input
+                className="z-input"
+                name="twitter_url"
+                value={siteSettings.twitter_url}
+                onChange={onSiteSettingsInput}
+                placeholder="https://twitter.com/..."
+              />
+            </label>
+
+            <label className="z-label">
+              YouTube URL
+              <input
+                className="z-input"
+                name="youtube_url"
+                value={siteSettings.youtube_url}
+                onChange={onSiteSettingsInput}
+                placeholder="https://youtube.com/..."
+              />
+            </label>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button className="z-btn primary" type="submit" disabled={isSiteSettingsSaving}>
+              {isSiteSettingsSaving ? "Saving…" : "Save"}
+            </button>
+            <button
+              className="z-btn secondary"
+              type="button"
+              onClick={loadSiteSettings}
+              disabled={isSiteSettingsSaving || isSiteSettingsLoading}
+            >
+              Reload
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  const renderPolicies = () => (
+    <div>
+      <div className="z-page-head">
+        <div>
+          <div className="z-title">Policies</div>
+          <div className="z-subtitle">Add / Edit footer policy pages</div>
+        </div>
+      </div>
+
+      {policyStatus?.message ? (
+        <div
+          className="z-subtitle"
+          style={{
+            color: policyStatus.type === "error" ? "#b91c1c" : "#16a34a",
+            marginBottom: 12,
+          }}
+        >
+          {policyStatus.message}
+        </div>
+      ) : null}
+
+      <div className="z-card">
+        <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+          {policyForm?.id ? `Edit Policy #${policyForm.id}` : "Add Policy"}
+        </div>
+
+        <form onSubmit={onPolicySubmit} style={{ display: "grid", gap: 12 }}>
+          <label className="z-label">
+            Title*
+            <input className="z-input" name="title" value={policyForm.title} onChange={onPolicyInput} />
+          </label>
+
+          <div className="z-grid-stats" style={{ gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginBottom: 0 }}>
+            <label className="z-label">
+              Footer Section
+              <select className="z-input" name="footer_group" value={policyForm.footer_group} onChange={onPolicyInput}>
+                <option value="Help">Help</option>
+                <option value="Privacy & Legal">Privacy & Legal</option>
+                <option value="Other Services">Other Services</option>
+              </select>
+            </label>
+
+            <label className="z-label">
+              Slug (optional)
+              <input className="z-input" name="slug" value={policyForm.slug} onChange={onPolicyInput} placeholder="terms-conditions" />
+            </label>
+          </div>
+
+          <label className="z-label">
+            Content
+            <textarea className="z-input" name="content" value={policyForm.content} onChange={onPolicyInput} rows={10} />
+          </label>
+
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button className="z-btn primary" type="submit" disabled={isPolicySaving}>
+              {isPolicySaving ? "Saving…" : policyForm?.id ? "Update" : "Add"}
+            </button>
+            <button className="z-btn secondary" type="button" onClick={onPolicyReset} disabled={isPolicySaving}>
+              Reset
+            </button>
+            {policyForm?.id ? (
+              <button className="z-btn secondary" type="button" onClick={() => onPolicyDelete(policyForm.id)} disabled={isPolicySaving}>
+                Delete
+              </button>
+            ) : null}
+          </div>
+        </form>
+      </div>
+
+      <div className="z-card" style={{ marginTop: 16 }}>
+        <div className="z-strong" style={{ fontSize: 18, marginBottom: 12 }}>
+          All Policies
+        </div>
+
+        {isPoliciesLoading ? <div className="z-subtitle">Loading…</div> : null}
+
+        <div style={{ overflowX: "auto" }}>
+          <table className="z-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Section</th>
+                <th>Slug</th>
+                <th>Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(policies || []).length ? (
+                (policies || []).map((p) => (
+                  <tr key={p.id || p.slug}>
+                    <td className="z-strong">{p.title || "—"}</td>
+                    <td>{p.footer_group || "—"}</td>
+                    <td>{p.slug || "—"}</td>
+                    <td>{formatDateTime(p.updated_at || p.created_at) || "—"}</td>
+                    <td>
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <button className="z-btn secondary" type="button" onClick={() => onPolicyEdit(p)} disabled={isPolicySaving}>
+                          Edit
+                        </button>
+                        <button className="z-btn secondary" type="button" onClick={() => onPolicyDelete(p.id)} disabled={isPolicySaving}>
+                          Delete
+                        </button>
+                        {p.slug ? (
+                          <Link className="z-btn secondary" to={`/policy/${p.slug}`} target="_blank" rel="noreferrer">
+                            View
+                          </Link>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="z-subtitle">No policies yet.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
   return (
     <div className="zubilo-admin">
       <div className="z-shell">
@@ -3738,6 +4458,30 @@ export default function AdminPage() {
               }}
             >
               <DollarSign size={20} /> Payments
+            </button>
+
+            <button
+              type="button"
+              className={activePage === "blogs" ? "z-nav-btn active" : "z-nav-btn"}
+              onClick={() => goto("blogs")}
+            >
+              <FileText size={20} /> Blogs
+            </button>
+
+            <button
+              type="button"
+              className={activePage === "settings" ? "z-nav-btn active" : "z-nav-btn"}
+              onClick={() => goto("settings")}
+            >
+              <Settings size={20} /> Settings
+            </button>
+
+            <button
+              type="button"
+              className={activePage === "policies" ? "z-nav-btn active" : "z-nav-btn"}
+              onClick={() => goto("policies")}
+            >
+              <Shield size={20} /> Policies
             </button>
 
             <button
@@ -3860,6 +4604,9 @@ export default function AdminPage() {
                 {activePage === "addProducts" ? renderAddProducts() : null}
                 {activePage === "inventory" ? renderInventory() : null}
                 {activePage === "payments" ? renderPayments() : null}
+                {activePage === "blogs" ? renderBlogs() : null}
+                {activePage === "settings" ? renderSettings() : null}
+                {activePage === "policies" ? renderPolicies() : null}
                 {activePage === "complaints" ? renderComplaints() : null}
               </>
             )}

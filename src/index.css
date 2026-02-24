@@ -1113,6 +1113,54 @@ p {
   font-size: 14px;
 }
 
+/* Best Selling Of 2026 (horizontal scrolling strip) */
+.best-selling-2026 .section-head {
+  margin-bottom: 14px;
+}
+
+.best-selling-track {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 6px 2px 10px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.best-selling-card {
+  flex: 0 0 auto;
+  width: 220px;
+  scroll-snap-align: start;
+}
+
+.best-selling-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+}
+
+.best-selling-viewall {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  padding: 14px 22px;
+  border-radius: var(--radius);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+.best-selling-viewall:hover {
+  border-color: rgba(42, 34, 27, 0.22);
+}
+
+@media (max-width: 480px) {
+  .best-selling-card {
+    width: 200px;
+  }
+}
+
 .product-grid {
   margin-top: 26px;
   display: grid;
@@ -2724,14 +2772,139 @@ label {
   border-bottom-color: rgba(246, 241, 232, 0.7);
 }
 
+.footer-links-grid {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.footer-links {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.footer-link {
+  color: rgba(246, 241, 232, 0.74);
+  text-decoration: none;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.footer-link:hover {
+  color: rgba(246, 241, 232, 0.95);
+}
+
+.footer-link-row {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.footer-social {
+  margin-top: 12px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.footer-social-block {
+  margin-bottom: 22px;
+}
+
+.footer-social-row {
+  margin-top: 14px;
+}
+
+.footer-accordion {
+  border-top: 1px solid rgba(246, 241, 232, 0.14);
+}
+
+.footer-acc-item {
+  border-bottom: 1px solid rgba(246, 241, 232, 0.14);
+}
+
+.footer-acc-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 0;
+  border: 0;
+  background: transparent;
+  color: rgba(246, 241, 232, 0.95);
+  cursor: pointer;
+  text-align: left;
+}
+
+.footer-acc-title {
+  font-family: "Playfair Display", Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  letter-spacing: 0.01em;
+}
+
+.footer-acc-icon {
+  transition: transform 180ms ease;
+  opacity: 0.85;
+}
+
+.footer-acc-icon.open {
+  transform: rotate(180deg);
+}
+
+.footer-acc-panel {
+  display: none;
+  padding: 0 0 14px 0;
+}
+
+.footer-acc-panel.open {
+  display: grid;
+  gap: 10px;
+}
+
+.footer-social-link {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(246, 241, 232, 0.22);
+  color: rgba(246, 241, 232, 0.86);
+  text-decoration: none;
+}
+
+.footer-social-link:hover {
+  border-color: rgba(246, 241, 232, 0.45);
+  color: rgba(246, 241, 232, 1);
+}
+
+.footer-bottom {
+  margin-top: 34px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(246, 241, 232, 0.16);
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.footer-bottom-left {
+  color: rgba(246, 241, 232, 0.65);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.footer-bottom-right {
+  display: inline-flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 @media (max-width: 900px) {
   .footer-grid {
     grid-template-columns: 1fr;
-  }
-  .footer-form {
-    grid-template-columns: 1fr;
-  }
-  .footer-btn {
-    justify-self: start;
   }
 }
