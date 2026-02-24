@@ -366,7 +366,6 @@ export default function AdminPage() {
     ],
     []
   );
-
   const [takeoutAmountInr, setTakeoutAmountInr] = useState("");
   const [takeoutDate, setTakeoutDate] = useState("");
   const [takeoutSource, setTakeoutSource] = useState("hand"); // bank | hand
@@ -3791,7 +3790,6 @@ export default function AdminPage() {
       </div>
     </div>
   );
-
   return (
     <div className="zubilo-admin">
       <div className="z-shell">
