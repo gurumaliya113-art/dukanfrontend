@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { slugify } from "../slugify";
 import { Link } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { CATEGORIES, normalizeCategory } from "../categories";
@@ -1363,9 +1364,12 @@ export default function AdminPage() {
       const token = await getAccessToken();
       if (!token) throw new Error("Missing admin session");
 
+      const slug = slugify(form.name);
+
       const body = new FormData();
       body.append("category", normalizeCategory(form.category));
       body.append("name", form.name);
+      body.append("slug", slug);
       if (form.sku !== undefined) body.append("sku", form.sku);
       if (form.barcode !== undefined) body.append("barcode", form.barcode);
       if (form.quantity !== undefined) body.append("quantity", form.quantity);

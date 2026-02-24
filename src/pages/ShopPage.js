@@ -169,7 +169,7 @@ export default function ShopPage() {
               return (
                 <Link
                   key={product.id}
-                  to={`/product/${product.id}`}
+                  to={`/product/${product.slug || product.id}`}
                   className="product-card"
                 >
                   <div className="product-image-wrap">

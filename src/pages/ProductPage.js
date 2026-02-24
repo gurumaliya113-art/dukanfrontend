@@ -47,8 +47,7 @@ function normalizeProductSizes(value) {
 }
 
 export default function ProductPage() {
-  const { id } = useParams();
-  const productId = useMemo(() => Number(id), [id]);
+  const { slug } = useParams();
 
   const [product, setProduct] = useState(null);
   const [error, setError] = useState("");
@@ -61,12 +60,12 @@ export default function ProductPage() {
   const { region } = useRegion();
 
   useEffect(() => {
-    if (Number.isNaN(productId)) {
+    if (!slug) {
       setError("Invalid product");
       return;
     }
 
-    apiFetch(`/products/${productId}`)
+    apiFetch(`/products/slug/${encodeURIComponent(slug)}`)
       .then((res) => {
         if (res.status === 404) throw new Error("Product not found");
         if (!res.ok) throw new Error(`Failed to load product (${res.status})`);
@@ -88,7 +87,7 @@ export default function ProductPage() {
         setError(err.message);
         setProduct(null);
       });
-  }, [productId]);
+  }, [slug]);
 
   const onAddToCart = () => {
     setStatus("");
@@ -98,7 +97,7 @@ export default function ProductPage() {
     }
 
     cart.addItem({
-      productId,
+      productId: product?.id,
       name: product?.name,
       price: product?.price,
       price_inr: product?.price_inr,
@@ -115,7 +114,7 @@ export default function ProductPage() {
       setStatus("Please select a size");
       return;
     }
-    navigate(`/checkout?productId=${productId}&size=${encodeURIComponent(size)}`);
+    navigate(`/checkout?productId=${product?.id}&size=${encodeURIComponent(size)}`);
   };
 
   if (error) {
