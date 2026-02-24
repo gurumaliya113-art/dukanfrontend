@@ -166,10 +166,12 @@ export default function ShopPage() {
           <div className="product-grid">
             {products.map((product) => {
               const unit = getProductUnitPrice(product, region);
+              // Only use slug for product links
+              if (!product.slug) return null;
               return (
                 <Link
                   key={product.id}
-                  to={`/product/${product.slug || product.id}`}
+                  to={`/product/${product.slug}`}
                   className="product-card"
                 >
                   <div className="product-image-wrap">
