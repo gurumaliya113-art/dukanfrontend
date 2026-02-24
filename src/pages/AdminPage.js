@@ -4051,8 +4051,19 @@ export default function AdminPage() {
               <input className="z-input" name="author" value={blogForm.author} onChange={onBlogInput} placeholder="Author name" />
             </label>
             <label className="z-label">
-              Image URL
-              <input className="z-input" name="image_url" value={blogForm.image_url} onChange={onBlogInput} placeholder="https://..." />
+              Blog Image URL
+              <input
+                className="z-input"
+                name="image_url"
+                value={blogForm.image_url}
+                onChange={onBlogInput}
+                placeholder="https://your-image-host.com/image.jpg"
+                style={{ border: '2px solid #2563eb', background: '#f0f6ff' }}
+              />
+              <div className="z-subtitle" style={{ color: '#2563eb', marginTop: 4, fontSize: 13 }}>
+                Paste a direct image URL (e.g. from Supabase, Imgur, Cloudinary, or any public image link).<br />
+                <b>Tip:</b> You can use <a href="https://imgur.com/upload" target="_blank" rel="noopener noreferrer">Imgur</a> or Supabase Storage for hosting.
+              </div>
             </label>
           </div>
 
