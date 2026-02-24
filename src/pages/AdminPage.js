@@ -879,14 +879,12 @@ export default function AdminPage() {
                 </tbody>
               </table>
             </div>
-          </section>
 
+          </section>
           {/* ...existing code... */}
         </div>
       );
-    } catch {
-      return "";
-    }
+  // Removed misplaced try-catch block that caused build error
   };
 
   const formatOrderAddress = (o) => {
