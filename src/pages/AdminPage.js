@@ -114,6 +114,75 @@ const formatDateTime = (value) => {
 };
 
 export default function AdminPage() {
+    // BLOG STATE
+    const [blogs, setBlogs] = useState([]);
+    const [blogForm, setBlogForm] = useState({ id: null, title: '', content: '', summary: '', image_url: '', author: '' });
+    const [isBlogSaving, setIsBlogSaving] = useState(false);
+    const [blogStatus, setBlogStatus] = useState({ type: '', message: '' });
+
+    // Fetch blogs
+    const loadBlogs = useCallback(async () => {
+      try {
+        const res = await apiFetch('/blogs');
+        const data = await res.json();
+        setBlogs(Array.isArray(data) ? data : []);
+      } catch (e) {
+        setBlogs([]);
+      }
+    }, []);
+
+    useEffect(() => { loadBlogs(); }, []);
+
+    // Blog form handlers
+    const onBlogInput = (e) => {
+      const { name, value } = e.target;
+      setBlogForm((prev) => ({ ...prev, [name]: value }));
+    };
+
+    const onBlogEdit = (blog) => {
+      setBlogForm({ ...blog });
+      setBlogStatus({ type: '', message: '' });
+    };
+
+    const onBlogDelete = async (id) => {
+      if (!window.confirm('Delete this blog?')) return;
+      setIsBlogSaving(true);
+      try {
+        const token = await getAccessToken();
+        await apiFetch(`/blogs/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+        setBlogStatus({ type: 'success', message: 'Deleted' });
+        setBlogForm({ id: null, title: '', content: '', summary: '', image_url: '', author: '' });
+        loadBlogs();
+      } catch (e) {
+        setBlogStatus({ type: 'error', message: 'Delete failed' });
+      } finally {
+        setIsBlogSaving(false);
+      }
+    };
+
+    const onBlogSubmit = async (e) => {
+      e.preventDefault();
+      setIsBlogSaving(true);
+      setBlogStatus({ type: '', message: '' });
+      try {
+        const token = await getAccessToken();
+        const method = blogForm.id ? 'PUT' : 'POST';
+        const url = blogForm.id ? `/blogs/${blogForm.id}` : '/blogs';
+        const res = await apiFetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(blogForm),
+        });
+        if (!res.ok) throw new Error('Save failed');
+        setBlogStatus({ type: 'success', message: blogForm.id ? 'Updated' : 'Added' });
+        setBlogForm({ id: null, title: '', content: '', summary: '', image_url: '', author: '' });
+        loadBlogs();
+      } catch (e) {
+        setBlogStatus({ type: 'error', message: e.message });
+      } finally {
+        setIsBlogSaving(false);
+      }
+    };
   const trackingSectionRef = useRef(null);
 
   const [form, setForm] = useState(initialForm);
@@ -765,15 +834,56 @@ export default function AdminPage() {
       if (Number.isNaN(d.getTime())) return "";
       return d.toLocaleDateString();
     } catch {
-      return "";
-    }
-  };
+      return (
+        <div>
+          <section className="admin-section">
+            <h1>Admin Panel</h1>
+            {/* ...existing code... */}
+          </section>
 
-  const formatOrderTime = (value) => {
-    try {
-      const d = new Date(value);
-      if (Number.isNaN(d.getTime())) return "";
-      return d.toLocaleTimeString();
+          {/* BLOG ADMIN SECTION */}
+          <section className="admin-section" style={{ marginTop: 32 }}>
+            <h2>Blog Manager</h2>
+            <form onSubmit={onBlogSubmit} style={{ marginBottom: 16 }}>
+              <input className="z-input" name="title" value={blogForm.title} onChange={onBlogInput} placeholder="Blog Title" required style={{ marginBottom: 8 }} />
+              <input className="z-input" name="author" value={blogForm.author} onChange={onBlogInput} placeholder="Author" style={{ marginBottom: 8 }} />
+              <input className="z-input" name="image_url" value={blogForm.image_url} onChange={onBlogInput} placeholder="Image URL" style={{ marginBottom: 8 }} />
+              <textarea className="z-input" name="summary" value={blogForm.summary} onChange={onBlogInput} placeholder="Summary" rows={2} style={{ marginBottom: 8 }} />
+              <textarea className="z-input" name="content" value={blogForm.content} onChange={onBlogInput} placeholder="Content" rows={5} required style={{ marginBottom: 8 }} />
+              <button className="z-btn primary" type="submit" disabled={isBlogSaving}>{blogForm.id ? 'Update' : 'Add'} Blog</button>
+              {blogForm.id && <button className="z-btn" type="button" onClick={() => setBlogForm({ id: null, title: '', content: '', summary: '', image_url: '', author: '' })} style={{ marginLeft: 8 }}>Cancel</button>}
+            </form>
+            {blogStatus.message && <div className={`status ${blogStatus.type}`}>{blogStatus.message}</div>}
+            <div>
+              <table className="z-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Author</th>
+                    <th>Published</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {blogs.map((b) => (
+                    <tr key={b.id}>
+                      <td>{b.title}</td>
+                      <td>{b.author}</td>
+                      <td>{b.published_at ? formatDateTime(b.published_at) : ''}</td>
+                      <td>
+                        <button className="z-btn" onClick={() => onBlogEdit(b)}>Edit</button>
+                        <button className="z-btn danger" onClick={() => onBlogDelete(b.id)} style={{ marginLeft: 8 }}>Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* ...existing code... */}
+        </div>
+      );
     } catch {
       return "";
     }

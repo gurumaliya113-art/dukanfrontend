@@ -16,10 +16,14 @@ import Footer from "./components/Footer";
 function App() {
   const location = useLocation();
 
+  React.useEffect(() => {
+    // Print sitemap link for SEO
+    // Change to your deployed domain if needed
+    console.log('Sitemap: https://zubilo.studio/sitemap.xml');
+  }, []);
   return (
     <div>
       <Navbar />
-
       <LayoutGroup>
         <AnimatePresence mode="wait" initial={false}>
           <Routes location={location} key={location.pathname}>
@@ -36,7 +40,6 @@ function App() {
           </Routes>
         </AnimatePresence>
       </LayoutGroup>
-
       <Footer />
     </div>
   );
