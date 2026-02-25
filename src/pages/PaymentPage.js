@@ -50,7 +50,7 @@ export default function PaymentPage() {
       // Calculate amount (INR)
       const amount = cartMode ? cartTotal : (product ? getProductUnitPrice(product, region).amount : 0);
       try {
-        const res = await fetch("/create-razorpay-order", {
+        const res = await apiFetch("/create-razorpay-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ amount, currency: "INR" }),
