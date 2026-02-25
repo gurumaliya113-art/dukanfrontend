@@ -7,8 +7,6 @@ import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { apiFetch } from "../api";
 import { supabase } from "../supabaseClient";
 // ---
-export default function PaymentPage() {
-  // ...existing hooks and state...
 
   // Razorpay loader (loads only once)
   function loadRazorpayScript() {
