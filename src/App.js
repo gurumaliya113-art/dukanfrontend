@@ -15,6 +15,7 @@ import CartPage from "./pages/CartPage";
 import LoginPage from "./pages/LoginPage";
 import AccountPage from "./pages/AccountPage";
 import Footer from "./components/Footer";
+import PaymentIcons from "./components/PaymentIcons";
 
 
 function App() {
@@ -38,7 +39,6 @@ function App() {
         <AnimatePresence mode="wait" initial={false}>
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<ShopPage />} />
-
             {/* SEO-friendly section URLs (redirect to category query) */}
             <Route path="/new-arrivals" element={<Navigate to="/?category=new#arrivals" replace />} />
             <Route path="/men" element={<Navigate to="/?category=men#arrivals" replace />} />
@@ -46,14 +46,11 @@ function App() {
             <Route path="/kids" element={<Navigate to="/?category=kids#arrivals" replace />} />
             <Route path="/new-products" element={<Navigate to="/?category=new#arrivals" replace />} />
             <Route path="/trending" element={<Navigate to="/?category=new#arrivals" replace />} />
-
             {/* Blog */}
             <Route path="/blog" element={<BlogPage />} />
             <Route path="/blog/:slug" element={<BlogPostPage />} />
-
             {/* Policies */}
             <Route path="/policy/:slug" element={<PolicyPage />} />
-
             <Route path="/product/:slug" element={<ProductPage />} />
             <Route path="/product/:id" element={<RedirectToSlug />} />
             <Route path="/cart" element={<CartPage />} />
@@ -66,6 +63,7 @@ function App() {
           </Routes>
         </AnimatePresence>
       </LayoutGroup>
+      <PaymentIcons />
       <Footer />
     </div>
   );
