@@ -4,18 +4,24 @@ import { useCart } from "../cartContext";
 import { useRegion } from "../regionContext";
 import { formatMoney, getCartItemUnitPrice, getProductUnitPrice } from "../pricing";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
+import { apiFetch } from "../api";
+import { supabase } from "../supabaseClient";
+// ---
+export default function PaymentPage() {
+  // ...existing hooks and state...
 
-// Razorpay loader (loads only once)
-function loadRazorpayScript() {
-  return new Promise((resolve) => {
-    if (window.Razorpay) return resolve(true);
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
+  // Razorpay loader (loads only once)
+  function loadRazorpayScript() {
+    return new Promise((resolve) => {
+      if (window.Razorpay) return resolve(true);
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  }
+
   // Razorpay payment handler
   const handleRazorpayPayment = async () => {
     if (!checkoutForm) {
@@ -76,8 +82,6 @@ function loadRazorpayScript() {
       setPlacing(false);
     }
   };
-import { apiFetch } from "../api";
-import { supabase } from "../supabaseClient";
 
 export default function PaymentPage() {
   const location = useLocation();
