@@ -8,80 +8,81 @@ import { apiFetch } from "../api";
 import { supabase } from "../supabaseClient";
 // ---
 
-  // Razorpay loader (loads only once)
-  function loadRazorpayScript() {
-    return new Promise((resolve) => {
-      if (window.Razorpay) return resolve(true);
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  }
 
-  // Razorpay payment handler
-  const handleRazorpayPayment = async () => {
-    if (!checkoutForm) {
-      setStatus("Please go back and fill delivery details first");
-      return;
-    }
-    if (!cartMode) {
-      if (!size) {
-        setStatus("Please go back and select a size");
-        return;
-      }
-      if (!product) {
-        setStatus("Product not loaded");
-        return;
-      }
-    } else {
-      if (!Array.isArray(cartItems) || cartItems.length === 0) {
-        setStatus("Cart items missing. Go back to cart.");
-        return;
-      }
-    }
-    setStatus("");
-    setPlacing(true);
-    await loadRazorpayScript();
-    // Calculate amount (INR)
-    const amount = cartMode ? cartTotal : (product ? getProductUnitPrice(product, region).amount : 0);
-    try {
-      const res = await fetch("/create-razorpay-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount, currency: "INR" }),
-      });
-      const order = await res.json();
-      if (!order.id) throw new Error("Failed to create Razorpay order");
-      const options = {
-        key: "rzp_live_SKJkEH565DbZT8", // TODO: Replace with your Razorpay key_id or load from backend/env
-        amount: order.amount,
-        currency: order.currency,
-        name: "Zubilo",
-        description: "Order Payment",
-        order_id: order.id,
-        handler: function (response) {
-          alert("Payment Success: " + response.razorpay_payment_id);
-          // TODO: Backend verify and order update
-        },
-        prefill: {
-          name: checkoutForm.fullName,
-          email: checkoutForm.email,
-          contact: checkoutForm.phone,
-        },
-        theme: { color: "#F37254" },
-      };
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } catch (e) {
-      setStatus(e.message || "Razorpay error");
-    } finally {
-      setPlacing(false);
-    }
-  };
 
 export default function PaymentPage() {
+    // Razorpay loader (loads only once)
+    function loadRazorpayScript() {
+      return new Promise((resolve) => {
+        if (window.Razorpay) return resolve(true);
+        const script = document.createElement("script");
+        script.src = "https://checkout.razorpay.com/v1/checkout.js";
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.body.appendChild(script);
+      });
+    }
+
+    // Razorpay payment handler
+    const handleRazorpayPayment = async () => {
+      if (!checkoutForm) {
+        setStatus("Please go back and fill delivery details first");
+        return;
+      }
+      if (!cartMode) {
+        if (!size) {
+          setStatus("Please go back and select a size");
+          return;
+        }
+        if (!product) {
+          setStatus("Product not loaded");
+          return;
+        }
+      } else {
+        if (!Array.isArray(cartItems) || cartItems.length === 0) {
+          setStatus("Cart items missing. Go back to cart.");
+          return;
+        }
+      }
+      setStatus("");
+      setPlacing(true);
+      await loadRazorpayScript();
+      // Calculate amount (INR)
+      const amount = cartMode ? cartTotal : (product ? getProductUnitPrice(product, region).amount : 0);
+      try {
+        const res = await fetch("/create-razorpay-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount, currency: "INR" }),
+        });
+        const order = await res.json();
+        if (!order.id) throw new Error("Failed to create Razorpay order");
+        const options = {
+          key: "rzp_live_SKJkEH565DbZT8", // TODO: Replace with your Razorpay key_id or load from backend/env
+          amount: order.amount,
+          currency: order.currency,
+          name: "Zubilo",
+          description: "Order Payment",
+          order_id: order.id,
+          handler: function (response) {
+            alert("Payment Success: " + response.razorpay_payment_id);
+            // TODO: Backend verify and order update
+          },
+          prefill: {
+            name: checkoutForm.fullName,
+            email: checkoutForm.email,
+            contact: checkoutForm.phone,
+          },
+          theme: { color: "#F37254" },
+        };
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      } catch (e) {
+        setStatus(e.message || "Razorpay error");
+      } finally {
+        setPlacing(false);
+      }
+    };
   const location = useLocation();
   const navigate = useNavigate();
   const [params] = useSearchParams();
