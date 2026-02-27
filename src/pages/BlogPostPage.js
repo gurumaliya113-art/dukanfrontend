@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { apiFetch } from "../api";
+import SeoHead from "../seo/SeoHead";
+import { blogPostingJsonLd, breadcrumbJsonLd, webPageJsonLd } from "../seo/jsonLd";
+import { SITE } from "../seo/siteConfig";
 
 const toParagraphs = (content) => {
   const raw = content === undefined || content === null ? "" : String(content);
@@ -22,6 +25,7 @@ const toParagraphs = (content) => {
 
 export default function BlogPostPage() {
   const { slug } = useParams();
+  const location = useLocation();
   const [blog, setBlog] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,13 +45,6 @@ export default function BlogPostPage() {
       .then((data) => {
         if (cancelled) return;
         setBlog(data || null);
-        if (data?.title) {
-          try {
-            document.title = `${data.title} | ZUBILO`;
-          } catch {
-            // ignore
-          }
-        }
       })
       .catch((e) => {
         if (cancelled) return;
@@ -67,8 +64,39 @@ export default function BlogPostPage() {
 
   const paragraphs = useMemo(() => toParagraphs(blog?.content), [blog?.content]);
 
+  const canonicalPath = `/blog/${encodeURIComponent(slug || "")}`;
+  const canonicalUrl = `${SITE.origin}${canonicalPath}`;
+  const jsonLd = useMemo(() => {
+    return [
+      webPageJsonLd({
+        name: `${blog?.title || "Blog"} | Zubilo Apparels`,
+        url: canonicalUrl,
+        description: blog?.summary || undefined,
+      }),
+      breadcrumbJsonLd([
+        { name: "Home", item: "/" },
+        { name: "Blog", item: "/blog" },
+        { name: blog?.title || "Post", item: canonicalPath },
+      ]),
+      blogPostingJsonLd(blog ? { ...blog, slug } : null),
+    ].filter(Boolean);
+  }, [blog, canonicalPath, canonicalUrl, slug]);
+
   return (
     <div>
+      <SeoHead
+        location={location}
+        titlePrimary={blog?.title || "Blog"}
+        titleSecondary="Zubilo Apparels"
+        description={blog?.summary || blog?.content}
+        canonical={canonicalUrl}
+        ogImage={blog?.image_url || SITE.defaultOgImage}
+        jsonLd={jsonLd}
+        robots={error ? "noindex, nofollow" : undefined}
+      />
+
+      <h1 className="sr-only">{blog?.title || "Blog post"}</h1>
+
       <section className="section">
         <div className="container">
           <div className="section-head">
@@ -91,6 +119,8 @@ export default function BlogPostPage() {
                     className="product-image"
                     src={blog.image_url}
                     alt={blog.title || "Blog"}
+                    loading="eager"
+                    decoding="async"
                   />
                 </div>
               ) : null}

@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { apiFetch } from "../api";
+import { useLocation } from "react-router-dom";
+import SeoHead from "../seo/SeoHead";
+import { breadcrumbJsonLd, webPageJsonLd } from "../seo/jsonLd";
+import { SITE } from "../seo/siteConfig";
 
 const toParagraphs = (content) => {
   const raw = content === undefined || content === null ? "" : String(content);
@@ -22,6 +26,7 @@ const toParagraphs = (content) => {
 
 export default function PolicyPage() {
   const { slug } = useParams();
+  const location = useLocation();
   const [policy, setPolicy] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -41,13 +46,6 @@ export default function PolicyPage() {
       .then((data) => {
         if (cancelled) return;
         setPolicy(data || null);
-        if (data?.title) {
-          try {
-            document.title = `${data.title} | ZUBILO`;
-          } catch {
-            // ignore
-          }
-        }
       })
       .catch((e) => {
         if (cancelled) return;
@@ -67,8 +65,36 @@ export default function PolicyPage() {
 
   const paragraphs = useMemo(() => toParagraphs(policy?.content), [policy?.content]);
 
+  const canonicalPath = `/policy/${encodeURIComponent(slug || "")}`;
+  const canonicalUrl = `${SITE.origin}${canonicalPath}`;
+  const jsonLd = useMemo(() => {
+    return [
+      webPageJsonLd({
+        name: `${policy?.title || "Policy"} | Zubilo Apparels`,
+        url: canonicalUrl,
+        description: policy?.title ? `${policy.title} for Zubilo Apparels.` : undefined,
+      }),
+      breadcrumbJsonLd([
+        { name: "Home", item: "/" },
+        { name: policy?.title || "Policy", item: canonicalPath },
+      ]),
+    ].filter(Boolean);
+  }, [canonicalPath, canonicalUrl, policy]);
+
   return (
     <div>
+      <SeoHead
+        location={location}
+        titlePrimary={policy?.title || "Policy"}
+        titleSecondary="Zubilo Apparels"
+        description={policy?.content}
+        canonical={canonicalUrl}
+        jsonLd={jsonLd}
+        robots={error ? "noindex, nofollow" : undefined}
+      />
+
+      <h1 className="sr-only">{policy?.title || "Policy"}</h1>
+
       <section className="section">
         <div className="container">
           <div className="section-head">

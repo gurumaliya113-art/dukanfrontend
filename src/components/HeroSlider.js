@@ -173,6 +173,8 @@ export default function HeroSlider({ images, intervalMs = 3800 }) {
           src={active.src}
           alt={active.alt || "Featured"}
           loading={index === 0 ? "eager" : "lazy"}
+          decoding="async"
+          fetchPriority={index === 0 ? "high" : "auto"}
           draggable={false}
         />
       </div>

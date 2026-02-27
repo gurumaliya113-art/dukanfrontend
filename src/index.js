@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import { HelmetProvider } from "react-helmet-async";
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
@@ -10,13 +11,15 @@ import { RegionProvider } from "./regionContext";
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <RegionProvider>
-        <CartProvider>
-          <App />
-        </CartProvider>
-      </RegionProvider>
-    </BrowserRouter>
+    <HelmetProvider>
+      <BrowserRouter>
+        <RegionProvider>
+          <CartProvider>
+            <App />
+          </CartProvider>
+        </RegionProvider>
+      </BrowserRouter>
+    </HelmetProvider>
   </React.StrictMode>
 );
 

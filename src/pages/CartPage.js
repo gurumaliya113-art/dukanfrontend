@@ -1,10 +1,14 @@
 import React, { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useCart } from "../cartContext";
 import { useRegion } from "../regionContext";
 import { formatMoney, getCartItemUnitPrice } from "../pricing";
+import SeoHead from "../seo/SeoHead";
+import { breadcrumbJsonLd, webPageJsonLd } from "../seo/jsonLd";
+import { canonicalFromLocation } from "../seo/seoUtils";
 
 export default function CartPage() {
+  const location = useLocation();
   const cart = useCart();
   const { region } = useRegion();
 
@@ -25,11 +29,36 @@ export default function CartPage() {
     return first ? getCartItemUnitPrice(first, region).currency : (region === "US" ? "USD" : "INR");
   }, [cart.items, region]);
 
+  const canonicalUrl = canonicalFromLocation(location);
+  const jsonLd = useMemo(() => {
+    return [
+      webPageJsonLd({
+        name: "Cart | Zubilo Apparels",
+        url: canonicalUrl,
+        description: "Review items in your cart before checkout.",
+      }),
+      breadcrumbJsonLd([
+        { name: "Home", item: "/" },
+        { name: "Cart", item: "/cart" },
+      ]),
+    ].filter(Boolean);
+  }, [canonicalUrl]);
+
   return (
     <div className="section">
       <div className="container">
+        <SeoHead
+          location={location}
+          titlePrimary="Cart"
+          titleSecondary="Zubilo Apparels"
+          description="Review your selected items and proceed to secure checkout on Zubilo Apparels."
+          canonical={canonicalUrl}
+          jsonLd={jsonLd}
+          robots="noindex, nofollow"
+        />
+
         <div className="section-head">
-          <h2 className="section-title">Cart</h2>
+          <h1 className="section-title">Cart</h1>
           <div className="section-count">{cart.count} ITEMS</div>
         </div>
 
@@ -52,7 +81,7 @@ export default function CartPage() {
                   >
                     <div className="cart-thumb">
                       {item.image1 ? (
-                        <img src={item.image1} alt="" />
+                        <img src={item.image1} alt={item.name || "Cart item"} loading="lazy" decoding="async" />
                       ) : (
                         <div className="cart-thumb-fallback" />
                       )}

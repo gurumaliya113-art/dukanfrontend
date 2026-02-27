@@ -7,6 +7,9 @@ import { apiFetch } from "../api";
 import HeroSlider from "../components/HeroSlider";
 import ReviewsSlider from "../components/ReviewsSlider";
 import BestSelling2026Scroller from "../components/BestSelling2026Scroller";
+import SeoHead from "../seo/SeoHead";
+import { breadcrumbJsonLd, faqJsonLd, webPageJsonLd } from "../seo/jsonLd";
+import { canonicalFromLocation } from "../seo/seoUtils";
 
 export default function ShopPage() {
   const [products, setProducts] = useState([]);
@@ -56,6 +59,48 @@ export default function ShopPage() {
     const params = new URLSearchParams(location.search || "");
     return normalizeCategory(params.get("category"));
   }, [location.search]);
+
+  const categoryLabel = getCategoryLabel(activeCategory);
+
+  const faqs = useMemo(
+    () => [
+      {
+        q: "Do you ship worldwide?",
+        a: "Yes. Zubilo Apparels ships worldwide. Shipping time and charges may vary by destination and are shown at checkout.",
+      },
+      {
+        q: "What is the return window?",
+        a: "We offer a 7-day return window for eligible items. Please check the Returns policy page for exclusions and steps.",
+      },
+      {
+        q: "How do I track my order?",
+        a: "After placing an order, you can view order status and tracking updates in My Account once you are logged in.",
+      },
+      {
+        q: "Which payment options are available?",
+        a: "Payment options depend on your region. India supports Razorpay/UPI and COD where available; other regions may see additional options at checkout.",
+      },
+    ],
+    []
+  );
+
+  const canonicalUrl = canonicalFromLocation(location);
+  const jsonLd = useMemo(() => {
+    const crumbs = breadcrumbJsonLd([
+      { name: "Home", item: "/" },
+      activeCategory && activeCategory !== "new" ? { name: categoryLabel, item: `/?category=${encodeURIComponent(activeCategory)}` } : null,
+    ].filter(Boolean));
+
+    return [
+      webPageJsonLd({
+        name: `${categoryLabel} | ${"Zubilo Apparels"}`,
+        url: canonicalUrl,
+        description: `Browse ${categoryLabel} on Zubilo Apparels. Worldwide shipping and 7-day returns.`,
+      }),
+      crumbs,
+      faqJsonLd(faqs),
+    ].filter(Boolean);
+  }, [activeCategory, categoryLabel, canonicalUrl, faqs]);
 
   useEffect(() => {
     const url = `/products?category=${encodeURIComponent(activeCategory)}`;
@@ -122,6 +167,29 @@ export default function ShopPage() {
 
   return (
     <div>
+      <SeoHead
+        location={location}
+        titlePrimary={
+          activeCategory && activeCategory !== "new"
+            ? `${categoryLabel} Clothing & New Arrivals`
+            : "New Arrivals for Men, Women & Kids"
+        }
+        titleSecondary="Worldwide Shipping"
+        description={
+          activeCategory && activeCategory !== "new"
+            ? `Shop ${categoryLabel} clothing at Zubilo Apparels. New arrivals, trending styles, secure checkout, worldwide shipping, and 7-day returns.`
+            : "Shop new arrivals for men, women & kids at Zubilo Apparels. Trending styles, secure checkout, worldwide shipping, and 7-day returns."
+        }
+        canonical={canonicalUrl}
+        jsonLd={jsonLd}
+      />
+
+      <h1 className="sr-only">
+        {activeCategory && activeCategory !== "new"
+          ? `${categoryLabel} — Zubilo Apparels`
+          : "Zubilo Apparels — New Arrivals"}
+      </h1>
+
       <section className="hero hero-fullbleed hero-home">
         <HeroSlider images={sliderImages} />
       </section>
@@ -182,6 +250,8 @@ export default function ShopPage() {
                       className="product-image"
                       src={product.image1 || "https://via.placeholder.com/600"}
                       alt={product.name}
+                      loading="lazy"
+                      decoding="async"
                     />
                   </div>
                   <div className="product-meta">
@@ -194,6 +264,49 @@ export default function ShopPage() {
               );
             })}
           </div>
+        </div>
+      </section>
+
+      <section className="section" aria-label="About Zubilo Apparels">
+        <div className="container" style={{ maxWidth: 920 }}>
+          <h2 className="section-title">About the Brand</h2>
+          <p className="section-subtitle">
+            Zubilo Apparels is an online fashion store offering curated styles for men, women, and kids with worldwide shipping and a 7-day return window.
+          </p>
+          <div style={{ marginTop: 10, lineHeight: 1.85, display: "grid", gap: 10 }}>
+            <p>
+              Looking for everyday essentials, seasonal picks, or standout outfits? Browse new arrivals by category, open any product to view details, and checkout securely. Prices adapt to your selected region so you can shop with clarity.
+            </p>
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              <li>New arrivals and trending collections across categories</li>
+              <li>Region-based pricing for a smoother checkout experience</li>
+              <li>Worldwide shipping and an easy 7-day return window</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="section" aria-label="Frequently asked questions">
+        <div className="container" style={{ maxWidth: 920 }}>
+          <h2 className="section-title">FAQs</h2>
+          <p className="section-subtitle">Quick answers to common questions.</p>
+
+          <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+            {faqs.map((f) => (
+              <details key={f.q} className="cart-card" style={{ padding: 14 }}>
+                <summary style={{ cursor: "pointer", fontWeight: 700 }}>{f.q}</summary>
+                <p style={{ marginTop: 10, lineHeight: 1.8 }}>{f.a}</p>
+              </details>
+            ))}
+          </div>
+
+          <p className="summary-meta" style={{ marginTop: 14 }}>
+            Helpful links: <Link to="/blog" className="nav-link" style={{ padding: 0 }}>Blog</Link>
+            {" · "}
+            <Link to="/policy/returns-information" className="nav-link" style={{ padding: 0 }}>Returns</Link>
+            {" · "}
+            <Link to="/policy/delivery-information" className="nav-link" style={{ padding: 0 }}>Delivery</Link>
+          </p>
         </div>
       </section>
     </div>

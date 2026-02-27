@@ -2,6 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { apiFetch } from "../api";
+import SeoHead from "../seo/SeoHead";
+import { breadcrumbJsonLd, webPageJsonLd } from "../seo/jsonLd";
+import { canonicalFromLocation } from "../seo/seoUtils";
 
 const formatDate = (value) => {
   try {
@@ -24,6 +27,21 @@ export default function AccountPage() {
   const [offerPopup, setOfferPopup] = useState({ open: false, orderId: "" });
 
   const isLoggedIn = !!user;
+
+  const canonicalUrl = canonicalFromLocation(location);
+  const jsonLd = useMemo(() => {
+    return [
+      webPageJsonLd({
+        name: "My Account | Zubilo Apparels",
+        url: canonicalUrl,
+        description: "View your order history, tracking and returns.",
+      }),
+      breadcrumbJsonLd([
+        { name: "Home", item: "/" },
+        { name: "My Account", item: "/account" },
+      ]),
+    ].filter(Boolean);
+  }, [canonicalUrl]);
 
   const loadOrders = async () => {
     setStatus({ type: "", message: "" });
@@ -142,6 +160,15 @@ export default function AccountPage() {
   return (
     <div className="section">
       <div className="container">
+        <SeoHead
+          location={location}
+          titlePrimary="My Account"
+          titleSecondary="Zubilo Apparels"
+          description="Manage orders, tracking and returns in your Zubilo Apparels account."
+          canonical={canonicalUrl}
+          robots="noindex, nofollow"
+          jsonLd={jsonLd}
+        />
         {offerPopup.open ? (
           <div className="success-overlay" role="dialog" aria-modal="true" aria-label="Pay offer">
             <div className="success-modal">

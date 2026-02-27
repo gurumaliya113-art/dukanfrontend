@@ -5,6 +5,9 @@ import { useRegion } from "../regionContext";
 import { formatMoney, getCartItemUnitPrice, getProductUnitPrice } from "../pricing";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { apiFetch } from "../api";
+import SeoHead from "../seo/SeoHead";
+import { breadcrumbJsonLd, webPageJsonLd } from "../seo/jsonLd";
+import { canonicalFromLocation } from "../seo/seoUtils";
 import { supabase } from "../supabaseClient";
 // ---
 
@@ -456,11 +459,35 @@ export default function PaymentPage() {
     }
   };
 
+  const canonicalUrl = canonicalFromLocation(location);
+  const jsonLd = useMemo(() => {
+    return [
+      webPageJsonLd({
+        name: "Payment | Zubilo Apparels",
+        url: canonicalUrl,
+        description: "Choose a payment option to complete your order.",
+      }),
+      breadcrumbJsonLd([
+        { name: "Home", item: "/" },
+        { name: "Payment", item: "/payment" },
+      ]),
+    ].filter(Boolean);
+  }, [canonicalUrl]);
+
   if (postOrderPayMode) {
     if (payOfferLoading) {
       return (
         <div className="section">
           <div className="container">
+            <SeoHead
+              location={location}
+              titlePrimary="Payment"
+              titleSecondary="Zubilo Apparels"
+              description="Loading payment offer."
+              canonical={canonicalUrl}
+              robots="noindex, nofollow"
+              jsonLd={jsonLd}
+            />
             <h1 className="section-title">Payment</h1>
             <p className="status">Loading offer…</p>
           </div>
@@ -473,6 +500,15 @@ export default function PaymentPage() {
       return (
         <div className="section">
           <div className="container">
+            <SeoHead
+              location={location}
+              titlePrimary="Payment"
+              titleSecondary="Zubilo Apparels"
+              description={payOfferError || "Offer not available"}
+              canonical={canonicalUrl}
+              robots="noindex, nofollow"
+              jsonLd={jsonLd}
+            />
             <h1 className="section-title">Payment</h1>
             <p className="status">{payOfferError || "Offer not available"}</p>
             <p style={{ marginTop: 12 }}>
@@ -493,6 +529,15 @@ export default function PaymentPage() {
     return (
       <div className="section">
         <div className="container">
+          <SeoHead
+            location={location}
+            titlePrimary="Choose Payment Option"
+            titleSecondary="Zubilo Apparels"
+            description="Choose a payment option to complete your order securely."
+            canonical={canonicalUrl}
+            robots="noindex, nofollow"
+            jsonLd={jsonLd}
+          />
           <h1 className="section-title">Choose Payment Option</h1>
           <p className="section-subtitle">Pay now and get {discountPercent}% off on this order.</p>
 
@@ -568,6 +613,15 @@ export default function PaymentPage() {
     return (
       <div className="section">
         <div className="container">
+          <SeoHead
+            location={location}
+            titlePrimary="Payment"
+            titleSecondary="Zubilo Apparels"
+            description={error}
+            canonical={canonicalUrl}
+            robots="noindex, nofollow"
+            jsonLd={jsonLd}
+          />
           <h1 className="section-title">Payment</h1>
           <p className="status">{error}</p>
           <p style={{ marginTop: 12 }}>
@@ -582,6 +636,15 @@ export default function PaymentPage() {
     return (
       <div className="section">
         <div className="container">
+          <SeoHead
+            location={location}
+            titlePrimary="Payment"
+            titleSecondary="Zubilo Apparels"
+            description="Loading payment details."
+            canonical={canonicalUrl}
+            robots="noindex, nofollow"
+            jsonLd={jsonLd}
+          />
           <h1 className="section-title">Payment</h1>
           <p className="status">Loading…</p>
         </div>
@@ -616,6 +679,15 @@ export default function PaymentPage() {
       ) : null}
 
       <div className="container">
+        <SeoHead
+          location={location}
+          titlePrimary="Choose Payment Option"
+          titleSecondary="Zubilo Apparels"
+          description="Choose a payment option to complete your order securely."
+          canonical={canonicalUrl}
+          robots="noindex, nofollow"
+          jsonLd={jsonLd}
+        />
         <h1 className="section-title">Choose Payment Option</h1>
         <p className="section-subtitle">Scan QR or place COD order.</p>
 

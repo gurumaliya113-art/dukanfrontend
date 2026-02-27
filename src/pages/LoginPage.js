@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { apiFetch, getApiBase } from "../api";
+import SeoHead from "../seo/SeoHead";
+import { breadcrumbJsonLd, webPageJsonLd } from "../seo/jsonLd";
+import { canonicalFromLocation } from "../seo/seoUtils";
 
 const isProbablyEmail = (value) => String(value || "").includes("@");
 
@@ -14,6 +17,7 @@ const normalizePhone = (value) => {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [params] = useSearchParams();
 
   const redirectTo = useMemo(() => {
@@ -26,6 +30,21 @@ export default function LoginPage() {
     const explicit = (params.get("only") || "").toLowerCase() === "customer";
     return explicit || redirectTo.startsWith("/checkout");
   }, [params, redirectTo]);
+
+  const canonicalUrl = canonicalFromLocation(location);
+  const jsonLd = useMemo(() => {
+    return [
+      webPageJsonLd({
+        name: "Login | Zubilo Apparels",
+        url: canonicalUrl,
+        description: "Login to access your account and manage orders.",
+      }),
+      breadcrumbJsonLd([
+        { name: "Home", item: "/" },
+        { name: "Login", item: "/login" },
+      ]),
+    ].filter(Boolean);
+  }, [canonicalUrl]);
 
   const [sessionUser, setSessionUser] = useState(null);
 
@@ -213,6 +232,15 @@ export default function LoginPage() {
   return (
     <div className="section">
       <div className="container" style={{ maxWidth: 720 }}>
+        <SeoHead
+          location={location}
+          titlePrimary={onlyCustomer ? "Customer Login" : "Login"}
+          titleSecondary="Zubilo Apparels"
+          description="Login to your Zubilo Apparels account to manage orders, returns, and checkout faster."
+          canonical={canonicalUrl}
+          robots="noindex, nofollow"
+          jsonLd={jsonLd}
+        />
         <h1 className="section-title">{onlyCustomer ? "Customer Login" : "Login"}</h1>
         <p className="section-subtitle">
           {onlyCustomer ? "Login or create customer account to proceed." : "Customer login (top) and Admin login (below)."}

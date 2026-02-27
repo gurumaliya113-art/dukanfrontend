@@ -5,6 +5,9 @@ import { useRegion } from "../regionContext";
 import { formatMoney, getProductUnitMrp, getProductUnitPrice } from "../pricing";
 import { apiFetch } from "../api";
 import ReviewsSlider from "../components/ReviewsSlider";
+import SeoHead from "../seo/SeoHead";
+import { breadcrumbJsonLd, productJsonLd, webPageJsonLd } from "../seo/jsonLd";
+import { SITE } from "../seo/siteConfig";
 
 const DEFAULT_SIZES = ["XS", "S", "M", "L", "XL"];
 
@@ -121,6 +124,13 @@ export default function ProductPage() {
     return (
       <div className="detail">
         <div className="container">
+          <SeoHead
+            location={{ pathname: `/product/${encodeURIComponent(slug || "")}`, search: "" }}
+            titlePrimary="Product Not Found"
+            titleSecondary="Zubilo Apparels"
+            description="The product you’re looking for is not available. Browse new arrivals and trending styles on Zubilo Apparels."
+            robots="noindex, nofollow"
+          />
           <p className="status">{error}</p>
           <p style={{ marginTop: 10 }}>
             <Link to="/">Back to shop</Link>
@@ -134,6 +144,13 @@ export default function ProductPage() {
     return (
       <div className="detail">
         <div className="container">
+          <SeoHead
+            location={{ pathname: `/product/${encodeURIComponent(slug || "")}`, search: "" }}
+            titlePrimary="Loading Product"
+            titleSecondary="Zubilo Apparels"
+            description="Loading product details on Zubilo Apparels."
+            robots="noindex, nofollow"
+          />
           <p className="status">Loading…</p>
         </div>
       </div>
@@ -146,6 +163,21 @@ export default function ProductPage() {
   const isShowingVideo = activeMediaType === "video" && !!videoUrl;
   const unit = getProductUnitPrice(product, region);
   const unitMrp = getProductUnitMrp(product, region);
+
+  const canonicalPath = product?.slug ? `/product/${encodeURIComponent(product.slug)}` : `/product/${encodeURIComponent(slug || "")}`;
+  const canonicalUrl = `${SITE.origin}${canonicalPath}`;
+  const jsonLd = [
+    webPageJsonLd({
+      name: `${product.name} | Zubilo Apparels`,
+      url: canonicalUrl,
+      description: product.description || undefined,
+    }),
+    breadcrumbJsonLd([
+      { name: "Home", item: "/" },
+      { name: product.name, item: canonicalPath },
+    ]),
+    productJsonLd(product, { currency: unit.currency, price: unit.amount }),
+  ].filter(Boolean);
 
   const productSizes = normalizeProductSizes(product?.sizes);
   const sizes = productSizes.length ? productSizes : DEFAULT_SIZES;
@@ -166,6 +198,17 @@ export default function ProductPage() {
 
   return (
     <div className="detail">
+      <SeoHead
+        location={{ pathname: canonicalPath, search: "" }}
+        titlePrimary={product.name}
+        titleSecondary={"Buy Online"}
+        description={product.description}
+        descriptionFallback={`Shop ${product.name} on Zubilo Apparels. Secure checkout, worldwide shipping, and 7-day returns.`}
+        canonical={canonicalUrl}
+        ogImage={product.image1 || SITE.defaultOgImage}
+        jsonLd={jsonLd}
+      />
+
       <div className="container">
         <div className="detail-grid">
           <div>
@@ -179,7 +222,7 @@ export default function ProductPage() {
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               ) : (
-                <img src={mainImage} alt={product.name} />
+                <img src={mainImage} alt={product.name} loading="eager" decoding="async" />
               )}
             </div>
 
@@ -208,7 +251,7 @@ export default function ProductPage() {
                     }}
                     aria-label="View image"
                   >
-                    <img src={src} alt="" />
+                    <img src={src} alt="" loading="lazy" decoding="async" />
                   </button>
                 ))}
               </div>

@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { slugify } from "../slugify";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { supabase } from "../supabaseClient";
 import { CATEGORIES, normalizeCategory } from "../categories";
 import { apiFetch, getApiBase } from "../api";
+import SeoHead from "../seo/SeoHead";
+import { breadcrumbJsonLd, webPageJsonLd } from "../seo/jsonLd";
+import { canonicalFromLocation } from "../seo/seoUtils";
 import {
   AlertTriangle,
   Boxes,
@@ -118,6 +121,21 @@ const formatDateTime = (value) => {
 
 export default function AdminPage() {
   const trackingSectionRef = useRef(null);
+  const location = useLocation();
+  const canonicalUrl = canonicalFromLocation(location);
+  const jsonLd = useMemo(() => {
+    return [
+      webPageJsonLd({
+        name: "Admin | Zubilo Apparels",
+        url: canonicalUrl,
+        description: "Admin dashboard.",
+      }),
+      breadcrumbJsonLd([
+        { name: "Home", item: "/" },
+        { name: "Admin", item: "/admin" },
+      ]),
+    ].filter(Boolean);
+  }, [canonicalUrl]);
 
   const [form, setForm] = useState(initialForm);
   const [images, setImages] = useState([]);
@@ -4403,6 +4421,19 @@ export default function AdminPage() {
   );
   return (
     <div className="zubilo-admin">
+      <SeoHead
+        location={location}
+        titlePrimary="Admin"
+        titleSecondary="Zubilo Apparels"
+        description="Admin dashboard."
+        canonical={canonicalUrl}
+        robots="noindex, nofollow"
+        jsonLd={jsonLd}
+        includeWebsite={false}
+      />
+
+      <h1 className="sr-only">Admin</h1>
+
       <div className="z-shell">
         <aside className="z-sidebar" aria-label="Zubilo sidebar">
           <div className="z-logo">

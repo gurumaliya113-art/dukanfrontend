@@ -5,6 +5,9 @@ import { useRegion } from "../regionContext";
 import { formatMoney, getCartItemUnitPrice, getProductUnitPrice } from "../pricing";
 import { apiFetch } from "../api";
 import { supabase } from "../supabaseClient";
+import SeoHead from "../seo/SeoHead";
+import { breadcrumbJsonLd, webPageJsonLd } from "../seo/jsonLd";
+import { canonicalFromLocation } from "../seo/seoUtils";
 
 const initialForm = {
   fullName: "",
@@ -29,6 +32,21 @@ export default function CheckoutPage() {
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  const canonicalUrl = canonicalFromLocation(location);
+  const jsonLd = useMemo(() => {
+    return [
+      webPageJsonLd({
+        name: "Checkout | Zubilo Apparels",
+        url: canonicalUrl,
+        description: "Enter delivery details and proceed to payment.",
+      }),
+      breadcrumbJsonLd([
+        { name: "Home", item: "/" },
+        { name: "Checkout", item: "/checkout" },
+      ]),
+    ].filter(Boolean);
+  }, [canonicalUrl]);
 
   const [customerUser, setCustomerUser] = useState(null);
   const [checkoutAccess, setCheckoutAccess] = useState("pending"); // pending | guest
@@ -163,6 +181,15 @@ export default function CheckoutPage() {
     return (
       <div className="section">
         <div className="container">
+          <SeoHead
+            location={location}
+            titlePrimary="Checkout"
+            titleSecondary="Zubilo Apparels"
+            description={error}
+            canonical={canonicalUrl}
+            robots="noindex, nofollow"
+            jsonLd={jsonLd}
+          />
           <h1 className="section-title">Checkout</h1>
           <p className="status">{error}</p>
           <p style={{ marginTop: 12 }}>
@@ -177,6 +204,15 @@ export default function CheckoutPage() {
     return (
       <div className="section">
         <div className="container">
+          <SeoHead
+            location={location}
+            titlePrimary="Checkout"
+            titleSecondary="Zubilo Apparels"
+            description="Loading checkout details."
+            canonical={canonicalUrl}
+            robots="noindex, nofollow"
+            jsonLd={jsonLd}
+          />
           <h1 className="section-title">Checkout</h1>
           <p className="status">Loading…</p>
         </div>
@@ -187,7 +223,18 @@ export default function CheckoutPage() {
   return (
     <div className="section">
       <div className="container">
-        <h1 className="section-title">Payment Details</h1>
+        <SeoHead
+          location={location}
+          titlePrimary="Checkout"
+          titleSecondary="Zubilo Apparels"
+          description="Enter delivery details and proceed to payment on Zubilo Apparels."
+          canonical={canonicalUrl}
+          robots="noindex, nofollow"
+          jsonLd={jsonLd}
+        />
+
+        <h1 className="section-title">Checkout</h1>
+        <h2 className="section-title" style={{ marginTop: 10 }}>Payment Details</h2>
         <p className="section-subtitle">
           Confirm your selection and enter delivery details.
         </p>
@@ -247,6 +294,8 @@ export default function CheckoutPage() {
                   <img
                     src={product.image1 || "https://via.placeholder.com/900"}
                     alt={product.name}
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
 
